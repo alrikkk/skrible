@@ -1,0 +1,233 @@
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import { GoogleGenAI, Modality } from "@google/genai";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const app = express();
+const PORT = 3000;
+
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Helper to initialize GenAI client
+function getGenAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is missing.");
+  }
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
+    },
+  });
+}
+
+// Untangle Endpoint
+app.post("/api/untangle", async (req, res) => {
+  try {
+    const { prompt, route = "auto", budget, files = [], audio } = req.body;
+
+    if (!prompt && (!files || files.length === 0) && !audio) {
+      return res.status(400).json({ error: "Please provide text, image, or audio input." });
+    }
+
+    const ai = getGenAI();
+
+    // Construct parts
+    const parts: any[] = [];
+
+    // Add attached images
+    if (Array.isArray(files)) {
+      for (const file of files) {
+        if (file.data && file.mimeType) {
+          parts.push({
+            inlineData: {
+              mimeType: file.mimeType,
+              data: file.data.replace(/^data:[^;]+;base64,/, ""),
+            },
+          });
+        }
+      }
+    }
+
+    // Add audio input if present
+    if (audio && audio.data && audio.mimeType) {
+      parts.push({
+        inlineData: {
+          mimeType: audio.mimeType,
+          data: audio.data.replace(/^data:[^;]+;base64,/, ""),
+        },
+      });
+    }
+
+    // Contextual string prompt
+    let userText = prompt || "";
+    if (budget) {
+      userText += `\n[User's Specified Budget: $${budget}]`;
+    }
+    if (route && route !== "auto") {
+      userText += `\n[Forced Route: ${route.toUpperCase()}]`;
+    }
+
+    if (userText.trim()) {
+      parts.push({ text: userText });
+    }
+
+    // System instruction enforcing strict Skrible identity and output layout rules
+    const systemInstruction = `
+You are Skrible, an AI built to untangle chaotic student lives. You process text inputs, audio transcripts, or images (like whiteboard photos, fridge contents, receipts, handwritten notes) and output clean, structured, actionable summaries.
+
+CRITICAL OUTPUT FORMAT RULES:
+1. NEVER include conversational fluff (e.g., "Sure, I can help with that!", "Here is your recipe", "Hope this helps!", "Greetings"). Go straight to the data. No intros, no conclusions.
+2. Format all text outputs using strict Markdown with bold headers and punchy bullet points to match a high-contrast Neo-Brutalism web layout.
+3. Keep sentences short, direct, and under 15 words.
+
+CORE CAPABILITIES & ROUTING INSTRUCTIONS:
+
+IF ROUTE IS "notes" OR (ROUTE IS "auto" AND INPUT IS LECTURE NOTES, TRANSCRIPTS, WHITEBOARD IMAGES, TEXTBOOK PAGES, HANDWRITTEN NOTES, OR ACADEMIC CONCEPTS):
+Act as the "Untangler Note Engine." Analyze the input and output EXACTLY this layout with no additional text before or after:
+
+# 🧠 UNTANGLED NOTES: [Topic Name]
+## 📌 THE BIG IDEA
+- [1-sentence summary of the main concept]
+## ⚡️ CRITICAL TAKEAWAYS
+- [Key point 1]
+- [Key point 2]
+- [Key point 3]
+## 📖 KEY VOCABULARY
+- **[Term 1]**: [Simple definition]
+- **[Term 2]**: [Simple definition]
+
+
+IF ROUTE IS "chef" OR (ROUTE IS "auto" AND INPUT IS A BUDGET, FRIDGE PHOTOS, GROCERY RECEIPTS, OR INGREDIENT LISTS):
+Act as the "Dorm Chef Budget Planner." Maximize ingredients used, stay strictly within budget (if budget specified, calculate against budget; if no budget specified, estimate budget as $10.00), and output EXACTLY this layout with no additional text before or after:
+
+# 🍳 DORM CHEF: [Recipe Name]
+## 💰 COST BREAKDOWN
+- **Estimated Cost**: $[X.XX]
+- **Remaining Budget**: $[X.XX]
+## 🛒 INGREDIENTS USED
+- [Ingredient 1]
+- [Ingredient 2]
+## ⏳ TIME & STEPS
+- **Prep Time**: [X] minutes
+1. [Step 1 - simple instructions for dorm cooking]
+2. [Step 2]
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: { parts },
+      config: {
+        systemInstruction,
+        temperature: 0.2,
+      },
+    });
+
+    const resultText = response.text || "";
+    
+    // Detect which route was generated based on header
+    const routeDetected = resultText.includes("DORM CHEF:") ? "chef" : "notes";
+
+    res.json({ result: resultText, routeDetected });
+  } catch (error: any) {
+    console.error("Error in /api/untangle:", error);
+    res.status(500).json({ error: error?.message || "Failed to process untangle request." });
+  }
+});
+
+// Flashcard Generation Tool
+app.post("/api/flashcards", async (req, res) => {
+  try {
+    const { markdownNote } = req.body;
+    if (!markdownNote) {
+      return res.status(400).json({ error: "No note content provided." });
+    }
+
+    const ai = getGenAI();
+    const prompt = `Convert the following untangled note into 3 to 5 study flashcards for quick revision.
+Return JSON format as an array of objects: [{"question": "...", "answer": "...", "tag": "..."}]. Keep answers short and punchy (under 12 words).
+
+Note Content:
+${markdownNote}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    const flashcards = JSON.parse(response.text || "[]");
+    res.json({ flashcards });
+  } catch (error: any) {
+    console.error("Error in /api/flashcards:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate flashcards." });
+  }
+});
+
+// Text-to-Speech Endpoint
+app.post("/api/tts", async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: "No text provided for TTS." });
+    }
+
+    const ai = getGenAI();
+    // Clean markdown symbols for clearer speech
+    const cleanText = text.replace(/[#*`_~[\]]/g, "").slice(0, 1000);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-tts-preview",
+      contents: [{ parts: [{ text: `Read with punchy clarity: ${cleanText}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: "Zephyr" },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+      throw new Error("No audio data generated.");
+    }
+
+    res.json({ audio: base64Audio });
+  } catch (error: any) {
+    console.error("Error in /api/tts:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate speech." });
+  }
+});
+
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Skrible Server running at http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer();

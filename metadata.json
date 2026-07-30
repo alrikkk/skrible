@@ -1,0 +1,11 @@
+{
+  "name": "Skrible",
+  "description": "AI untangler for chaotic student lives — transforms notes, whiteboards, audio, fridge photos, and receipts into structured notes and dorm budget recipes.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
