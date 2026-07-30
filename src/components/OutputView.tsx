@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import {
@@ -39,6 +39,14 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Smooth scroll into view when new markdown content is received
+  useEffect(() => {
+    if (markdown && containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [markdown]);
 
   // Clean speech synthesis on unmount or when markdown changes
   useEffect(() => {
@@ -175,7 +183,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const ingredientsList = routeDetected === "chef" ? extractIngredients(markdown) : [];
 
   return (
-    <div className="bg-white border-4 border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 font-sans">
+    <div ref={containerRef} className="bg-white border-4 border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 font-sans scroll-mt-6">
       
       {/* HEADER TOOLBAR */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-4 border-black pb-4 mb-6">
