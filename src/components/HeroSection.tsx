@@ -95,11 +95,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Subtle background texture lines */}
           <div className="absolute inset-0 opacity-15 pointer-events-none bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:4rem_4rem]" />
 
-          {/* Doodles / Kaomoji Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-black/50 select-none mb-4 md:mb-0 relative z-20 pointer-events-none">
-            <span>(⊃｡•́‿•̀｡)⊃ *zero AI fluff*</span>
+          {/* Grid Hint Bar */}
+          <div className="flex items-center justify-end text-xs font-mono text-black/40 select-none mb-4 md:mb-0 relative z-20 pointer-events-none">
             <span className="hidden lg:inline text-black/30">[click & drag cards anywhere inside grid ↘]</span>
-            <span>(◕‿◕✿) ~ 3am lecture recording</span>
           </div>
 
           {/* CARDS CONTAINER */}
@@ -242,7 +240,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <div className="relative w-full aspect-[4/3] bg-stone-900 rounded-xs overflow-hidden border border-black/20 shadow-inner group">
                 {/* Static Mascot Image Asset */}
                 <img 
-                  src="/assets/pentung-mascot.svg" 
+                  src="/assets/images.jpeg" 
                   alt="PENTUNG POS RONDA" 
                   className="w-full h-full object-cover" 
                   referrerPolicy="no-referrer"
