@@ -28,6 +28,48 @@ function getGenAI() {
   });
 }
 
+// Robust helper to call generateContent with retry and fallback models on 503 / 429 high-demand errors
+async function generateContentWithRetry(
+  ai: GoogleGenAI,
+  params: { contents: any; config?: any },
+  modelsToTry: string[] = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
+) {
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          ...params,
+          model,
+        });
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        const status = err?.status || err?.code || 0;
+        const isTransient =
+          status === 503 ||
+          status === 429 ||
+          errMsg.includes("503") ||
+          errMsg.includes("UNAVAILABLE") ||
+          errMsg.includes("high demand") ||
+          errMsg.includes("temporary");
+
+        if (isTransient) {
+          console.warn(`[Gemini API] Temporary error on model '${model}' (attempt ${attempt + 1}): ${errMsg}. Retrying/falling back...`);
+          await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+          continue;
+        }
+        // If non-transient error, rethrow immediately
+        throw err;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // Untangle Endpoint
 app.post("/api/untangle", async (req, res) => {
   try {
@@ -121,8 +163,7 @@ Act as the "Dorm Chef Budget Planner." Maximize ingredients used, stay strictly 
 2. [Step 2]
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+    const response = await generateContentWithRetry(ai, {
       contents: { parts },
       config: {
         systemInstruction,
@@ -157,8 +198,7 @@ Return JSON format as an array of objects: [{"question": "...", "answer": "...",
 Note Content:
 ${markdownNote}`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+    const response = await generateContentWithRetry(ai, {
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -185,18 +225,31 @@ app.post("/api/tts", async (req, res) => {
     // Clean markdown symbols for clearer speech
     const cleanText = text.replace(/[#*`_~[\]]/g, "").slice(0, 1000);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-tts-preview",
-      contents: [{ parts: [{ text: `Read with punchy clarity: ${cleanText}` }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: "Zephyr" },
+    // Try up to 2 attempts for TTS in case of transient 503 errors
+    let response: any;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-tts-preview",
+          contents: [{ parts: [{ text: `Read with punchy clarity: ${cleanText}` }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Zephyr" },
+              },
+            },
           },
-        },
-      },
-    });
+        });
+        break;
+      } catch (err: any) {
+        if (attempt === 0 && (err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE"))) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+        throw err;
+      }
+    }
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {

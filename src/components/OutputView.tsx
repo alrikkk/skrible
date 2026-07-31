@@ -10,20 +10,34 @@ import {
   Layers,
   Bookmark,
   Share2,
+  Mail,
   Download,
   Sparkles,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Tag,
+  Plus
 } from "lucide-react";
 
 interface OutputViewProps {
   markdown: string;
   routeDetected: "notes" | "chef";
   onGenerateFlashcards: (markdown: string) => void;
-  onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef") => void;
+  onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[]) => void;
   isSaved: boolean;
   onNewUntangle: () => void;
 }
+
+const PRESET_TAGS = [
+  "Important",
+  "Study Note",
+  "Recipe",
+  "Exam Prep",
+  "Quick Meal",
+  "Formula",
+  "Cheat Sheet",
+  "High Priority",
+];
 
 export const OutputView: React.FC<OutputViewProps> = ({
   markdown,
@@ -39,7 +53,36 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Categorization tags state
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState("");
+  const [isAddingCustomTag, setIsAddingCustomTag] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize tags based on route when new content arrives
+  useEffect(() => {
+    setSelectedTags([routeDetected === "chef" ? "Recipe" : "Study Note"]);
+  }, [markdown, routeDetected]);
+
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const handleAddCustomTag = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = customTagInput.trim();
+    if (trimmed && !selectedTags.includes(trimmed)) {
+      setSelectedTags([...selectedTags, trimmed]);
+    }
+    setCustomTagInput("");
+    setIsAddingCustomTag(false);
+  };
 
   // Smooth scroll into view when new markdown content is received
   useEffect(() => {
@@ -124,6 +167,17 @@ export const OutputView: React.FC<OutputViewProps> = ({
     }
   };
 
+  // Mailto Email Share
+  const handleEmailShare = () => {
+    const subject = encodeURIComponent(
+      routeDetected === "chef" ? "Dorm Chef Recipe via Skrible" : "Untangled Notes via Skrible"
+    );
+    const body = encodeURIComponent(
+      `Hey! Check out these ${routeDetected === "chef" ? "dorm recipe ideas" : "untangled study notes"} from Skrible:\n\n${markdown}`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
   // Play Gemini TTS Audio
   const handleTTS = async () => {
     if (isPlayingAudio && audioElement) {
@@ -183,23 +237,18 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const ingredientsList = routeDetected === "chef" ? extractIngredients(markdown) : [];
 
   return (
-    <div ref={containerRef} className="bg-white border-4 border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 font-sans scroll-mt-6">
+    <div ref={containerRef} className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-6">
       
       {/* HEADER TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-4 border-black pb-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6">
         
         <div className="flex items-center gap-2">
-          <span
-            className={`font-black text-xs px-3 py-1 border-3 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] uppercase tracking-wider ${
-              routeDetected === "chef"
-                ? "bg-[#B5FFD9] text-black"
-                : "bg-[#FF90E8] text-black"
-            }`}
-          >
-            {routeDetected === "chef" ? "🍳 DORM CHEF OUTPUT" : "🧠 UNTANGLED NOTES"}
+          <span className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{routeDetected === "chef" ? "dorm chef recipe" : "untangled notes"}</span>
           </span>
-          <span className="text-xs font-black text-black uppercase">
-            STRICT ZERO-FLUFF DATA
+          <span className="text-xs font-mono text-black/50 uppercase">
+            zero-fluff data
           </span>
         </div>
 
@@ -208,107 +257,180 @@ export const OutputView: React.FC<OutputViewProps> = ({
           
           <button
             onClick={handleReadAloud}
-            className={`flex items-center gap-1.5 border-3 border-black px-3.5 py-1.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer ${
               isSpeaking
-                ? "bg-[#FF4500] text-white animate-pulse"
-                : "bg-[#FFE600] hover:bg-yellow-300 text-black"
+                ? "bg-[#ec4899] text-white border-[#ec4899] animate-pulse"
+                : "bg-white hover:bg-black/5 text-black border-black/15"
             }`}
             title="Read aloud using Web Speech API"
           >
-            {isSpeaking ? <VolumeX className="w-4 h-4 stroke-[3]" /> : <Headphones className="w-4 h-4 stroke-[3]" />}
-            {isSpeaking ? "STOP READING" : "READ ALOUD"}
+            {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Headphones className="w-3.5 h-3.5" />}
+            {isSpeaking ? "stop reading" : "read aloud"}
           </button>
 
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 bg-[#FFF4E0] hover:bg-amber-200 text-black border-3 border-black px-3.5 py-1.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
             title="Share with friends"
           >
-            <Share2 className="w-4 h-4 stroke-[3]" />
-            {shared ? "COPIED TO SHARE!" : "SHARE"}
+            <Share2 className="w-3.5 h-3.5" />
+            {shared ? "copied!" : "share"}
+          </button>
+
+          <button
+            onClick={handleEmailShare}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
+            title="Email note/recipe via mailto:"
+          >
+            <Mail className="w-3.5 h-3.5 text-[#ec4899]" />
+            <span>Share</span>
           </button>
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 bg-white hover:bg-amber-100 text-black border-3 border-black px-3.5 py-1.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
           >
-            {copied ? <Check className="w-4 h-4 text-green-600 stroke-[3]" /> : <Copy className="w-4 h-4 stroke-[3]" />}
-            {copied ? "COPIED!" : "COPY RAW MD"}
+            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? "copied!" : "copy md"}
           </button>
 
           <button
             onClick={handleTTS}
             disabled={isLoadingAudio}
-            className="flex items-center gap-1.5 bg-[#00F5FF] hover:bg-[#00d8e6] text-black border-3 border-black px-3.5 py-1.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
           >
             {isLoadingAudio ? (
-              <div className="w-4 h-4 border-3 border-black border-t-transparent animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent animate-spin rounded-full" />
             ) : isPlayingAudio ? (
-              <VolumeX className="w-4 h-4 stroke-[3]" />
+              <VolumeX className="w-3.5 h-3.5" />
             ) : (
-              <Volume2 className="w-4 h-4 stroke-[3]" />
+              <Volume2 className="w-3.5 h-3.5" />
             )}
-            {isPlayingAudio ? "STOP AUDIO" : "LISTEN AUDIO"}
+            {isPlayingAudio ? "stop audio" : "listen audio"}
           </button>
 
           {routeDetected === "notes" && (
             <button
               onClick={() => onGenerateFlashcards(markdown)}
-              className="flex items-center gap-1.5 bg-[#FF90E8] hover:bg-pink-300 text-black border-3 border-black px-3.5 py-1.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-[#ec4899] hover:bg-[#db2777] text-white border border-[#ec4899] px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
             >
-              <Layers className="w-4 h-4 stroke-[3]" /> FLASHCARDS
+              <Layers className="w-3.5 h-3.5" /> flashcards
             </button>
           )}
 
           <button
-            onClick={() => onSaveToHistory(markdown, routeDetected)}
+            onClick={() => onSaveToHistory(markdown, routeDetected, selectedTags)}
             disabled={isSaved}
-            className={`flex items-center gap-1.5 border-3 border-black px-3.5 py-1.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all ${
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
               isSaved
-                ? "bg-gray-200 text-gray-600 cursor-default"
-                : "bg-[#B5FFD9] hover:bg-[#8effbf] text-black active:translate-x-1 active:translate-y-1 active:shadow-none cursor-pointer"
+                ? "bg-black/5 text-black/40 border-black/10 cursor-default"
+                : "bg-black hover:bg-[#ec4899] text-white border-black cursor-pointer shadow-xs"
             }`}
           >
-            <Bookmark className="w-4 h-4 stroke-[3]" />
-            {isSaved ? "SAVED TO VAULT ✓" : "SAVE TO VAULT"}
+            <Bookmark className="w-3.5 h-3.5" />
+            {isSaved ? "saved" : "save to vault"}
           </button>
 
         </div>
       </div>
 
-      {/* RAW MARKDOWN DISPLAY BOX WITH NEO-BRUTALISM STYLING */}
+      {/* CATEGORIZATION TAGS BAR */}
+      <div className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-black/70 mr-1 shrink-0">
+          <Tag className="w-3.5 h-3.5 text-[#ec4899]" />
+          <span>Categorize:</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 flex-1">
+          {Array.from(new Set([...PRESET_TAGS, ...selectedTags])).map((tag) => {
+            const isSelected = selectedTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-[#ec4899] text-white border-[#ec4899] font-semibold shadow-2xs"
+                    : "bg-white text-black/70 border-black/15 hover:border-black/30 hover:bg-black/5 font-medium"
+                }`}
+              >
+                {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                <span>{tag}</span>
+              </button>
+            );
+          })}
+
+          {isAddingCustomTag ? (
+            <form onSubmit={handleAddCustomTag} className="inline-flex items-center gap-1">
+              <input
+                type="text"
+                autoFocus
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                placeholder="tag name..."
+                className="text-xs px-2 py-0.5 border border-[#ec4899] rounded-lg focus:outline-none bg-white text-black w-24"
+              />
+              <button
+                type="submit"
+                className="text-[11px] bg-[#ec4899] text-white px-2 py-0.5 rounded-lg font-semibold cursor-pointer"
+              >
+                add
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddingCustomTag(false)}
+                className="text-[11px] bg-black/10 text-black px-1.5 py-0.5 rounded-lg cursor-pointer hover:bg-black/20"
+              >
+                ✕
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsAddingCustomTag(true)}
+              className="text-xs px-2 py-1 rounded-lg border border-dashed border-black/20 text-black/60 hover:text-black hover:border-black/40 hover:bg-white font-medium flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              <span>custom tag</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING */}
       <div className="prose max-w-none text-black">
         <Markdown
           components={{
             h1: ({ children }) => (
-              <h1 className="text-2xl sm:text-4xl font-black text-black uppercase bg-[#FF90E8] border-4 border-black p-4 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] my-4 leading-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold text-black border-b border-black/15 pb-2.5 my-4">
                 {children}
               </h1>
             ),
             h2: ({ children }) => (
-              <h2 className="text-xl font-black bg-black text-white inline-block px-3 py-1 mt-6 mb-3 uppercase tracking-tight">
+              <h2 className="text-lg font-bold text-black border-l-3 border-[#ec4899] pl-3 py-0.5 mt-6 mb-3">
                 {children}
               </h2>
             ),
             ul: ({ children }) => (
-              <ul className="space-y-3 my-4 pl-0 list-none">{children}</ul>
+              <ul className="space-y-2.5 my-4 pl-0 list-none">{children}</ul>
             ),
             li: ({ children }) => (
-              <li className="flex items-start gap-3 bg-[#FFF4E0] border-3 border-black p-3.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] font-bold text-base text-black">
-                <span className="inline-block w-3 h-3 bg-black mt-1.5 shrink-0" />
+              <li className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 p-3.5 rounded-xl font-medium text-sm text-black/90">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
                 <div className="flex-1">{children}</div>
               </li>
             ),
             ol: ({ children }) => (
-              <ol className="space-y-3 my-4 pl-0 list-none">{children}</ol>
+              <ol className="space-y-2.5 my-4 pl-0 list-none">{children}</ol>
             ),
             p: ({ children }) => (
-              <p className="text-base font-bold leading-relaxed my-3 text-black">
+              <p className="text-sm sm:text-base font-normal leading-relaxed my-3 text-black/80">
                 {children}
               </p>
             ),
             strong: ({ children }) => (
-              <strong className="font-black text-black bg-[#00F5FF] px-1.5 py-0.5 border border-black text-xs uppercase">
+              <strong className="font-semibold text-black bg-[#ec4899]/15 px-1.5 py-0.5 rounded text-xs">
                 {children}
               </strong>
             ),
@@ -324,12 +446,12 @@ export const OutputView: React.FC<OutputViewProps> = ({
       )}
 
       {/* NEW UNTANGLE FOOTER */}
-      <div className="mt-8 pt-4 border-t-4 border-black flex justify-end">
+      <div className="mt-8 pt-4 border-t border-black/10 flex justify-end">
         <button
           onClick={onNewUntangle}
-          className="bg-black text-white hover:bg-gray-800 border-4 border-black px-6 py-3 font-black text-xs uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer flex items-center gap-2"
+          className="bg-black text-white hover:bg-[#ec4899] px-5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
         >
-          <RotateCcw className="w-4 h-4 stroke-[3]" /> UNTANGLE SOMETHING ELSE
+          <RotateCcw className="w-3.5 h-3.5" /> untangle something else
         </button>
       </div>
 

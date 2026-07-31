@@ -34,36 +34,36 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards, onCl
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border-4 border-black w-full max-w-xl p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative font-sans">
+      <div className="bg-white border border-black/15 rounded-2xl w-full max-w-xl p-6 shadow-2xl relative font-sans">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b-4 border-black pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-[#FF90E8] border-3 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-              <Layers className="w-5 h-5 text-black stroke-[3]" />
+        <div className="flex items-center justify-between border-b border-black/10 pb-4 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-[#ec4899]/10 text-[#ec4899] rounded-xl">
+              <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-lg text-black uppercase leading-none tracking-tight">
-                AI CRAM FLASHCARDS
+              <h3 className="font-bold text-base text-black leading-tight">
+                cram flashcards
               </h3>
-              <p className="text-xs font-black text-black uppercase mt-1">
-                Card {currentIndex + 1} of {flashcards.length} ({masteredCount} Mastered)
+              <p className="text-xs font-medium text-black/50">
+                card {currentIndex + 1} of {flashcards.length} ({masteredCount} mastered)
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="bg-[#FF90E8] text-black border-3 border-black p-1.5 hover:bg-pink-300 cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            className="p-1.5 text-black/60 hover:text-black hover:bg-black/5 border border-black/15 rounded-xl cursor-pointer transition-colors"
           >
-            <X className="w-5 h-5 stroke-[3]" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-white border-3 border-black h-4 mb-5 overflow-hidden p-0.5">
+        <div className="w-full bg-black/5 rounded-full h-2 mb-5 overflow-hidden">
           <div
-            className="bg-[#B5FFD9] h-full transition-all duration-300 border-r-2 border-black"
+            className="bg-[#ec4899] h-full transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / flashcards.length) * 100}%` }}
           />
         </div>
@@ -71,45 +71,45 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards, onCl
         {/* FLASHCARD BODY */}
         <div
           onClick={() => setFlipped(!flipped)}
-          className={`min-h-[220px] p-6 border-4 border-black cursor-pointer flex flex-col justify-between transition-all duration-300 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] ${
+          className={`min-h-[220px] p-6 border rounded-2xl cursor-pointer flex flex-col justify-between transition-all duration-300 shadow-xs ${
             flipped
-              ? "bg-[#00F5FF] text-black"
-              : "bg-[#FFF4E0] text-black hover:bg-amber-100"
+              ? "bg-[#ec4899]/10 border-[#ec4899]/30 text-black"
+              : "bg-[#FAF8F5] border-black/15 text-black hover:bg-[#FAF8F5]/80"
           }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="font-black text-xs uppercase px-2 py-0.5 border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <span className="font-semibold text-xs px-2.5 py-0.5 rounded-full border border-black/15 bg-white text-black/80">
               {current.tag || "CRAM KEY"}
             </span>
-            <span className="font-black text-xs text-black uppercase flex items-center gap-1">
-              <RotateCw className="w-3.5 h-3.5 stroke-[3]" /> CLICK TO FLIP
+            <span className="font-medium text-xs text-black/60 flex items-center gap-1">
+              <RotateCw className="w-3.5 h-3.5" /> click to flip
             </span>
           </div>
 
           <div className="my-auto text-center py-4">
             {!flipped ? (
               <div>
-                <p className="text-xs font-black text-black uppercase tracking-wider mb-1">
-                  QUESTION:
+                <p className="text-xs font-mono text-black/40 uppercase tracking-wider mb-1">
+                  question:
                 </p>
-                <h4 className="text-lg sm:text-2xl font-black text-black font-sans leading-snug uppercase">
+                <h4 className="text-lg sm:text-2xl font-bold text-black font-sans leading-snug">
                   {current.question}
                 </h4>
               </div>
             ) : (
               <div>
-                <p className="text-xs font-black text-black uppercase tracking-wider mb-1">
-                  ANSWER:
+                <p className="text-xs font-mono text-[#ec4899] uppercase tracking-wider mb-1">
+                  answer:
                 </p>
-                <h4 className="text-lg sm:text-2xl font-black text-black font-sans leading-snug uppercase">
+                <h4 className="text-lg sm:text-2xl font-bold text-black font-sans leading-snug">
                   {current.answer}
                 </h4>
               </div>
             )}
           </div>
 
-          <div className="text-center text-[11px] font-black text-black uppercase">
-            {flipped ? "Tap to see Question" : "Tap to see Answer"}
+          <div className="text-center text-xs font-medium text-black/40">
+            {flipped ? "tap to see question" : "tap to see answer"}
           </div>
         </div>
 
@@ -117,28 +117,29 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards, onCl
         <div className="flex items-center justify-between gap-3 mt-6">
           <button
             onClick={handlePrev}
-            className="bg-white hover:bg-amber-100 text-black border-3 border-black p-3 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex items-center gap-1 active:translate-x-1 active:translate-y-1 active:shadow-none"
+            className="bg-white hover:bg-black/5 text-black border border-black/15 px-4 py-2.5 rounded-xl font-medium text-xs cursor-pointer flex items-center gap-1.5 transition-all"
           >
-            <ChevronLeft className="w-4 h-4 stroke-[3]" /> PREV
+            <ChevronLeft className="w-4 h-4" /> prev
           </button>
 
           <button
             onClick={() => toggleMastered(currentIndex)}
-            className={`border-3 border-black px-4 py-3 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex items-center gap-1.5 active:translate-x-1 active:translate-y-1 active:shadow-none ${
+            className={`border px-4 py-2.5 rounded-xl font-semibold text-xs cursor-pointer flex items-center gap-1.5 transition-all ${
               mastered[currentIndex]
-                ? "bg-[#B5FFD9] text-black"
-                : "bg-white text-black hover:bg-amber-100"
+                ? "bg-[#ec4899] text-white border-[#ec4899]"
+                : "bg-white text-black border-black/15 hover:bg-black/5"
             }`}
           >
-            <CheckCircle2 className="w-4 h-4 stroke-[3]" />
-            {mastered[currentIndex] ? "MASTERED ✓" : "MARK MASTERED"}
+            <CheckCircle2 className="w-4 h-4" />
+            {mastered[currentIndex] ? "mastered" : "mark mastered"}
           </button>
 
           <button
             onClick={handleNext}
-            className="bg-[#FF90E8] hover:bg-pink-300 text-black border-3 border-black p-3 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex items-center gap-1 active:translate-x-1 active:translate-y-1 active:shadow-none"
+            className="bg-black hover:bg-[#ec4899] text-white border border-black px-4 py-2.5 rounded-xl font-semibold text-xs cursor-pointer flex items-center gap-1.5 transition-all shadow-xs"
           >
-            NEXT <ChevronRight className="w-4 h-4 stroke-[3]" />
+            <span>next</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Header } from "./components/Header";
+import { HeroSection } from "./components/HeroSection";
 import { PresetBar } from "./components/PresetBar";
 import { InputPanel } from "./components/InputPanel";
 import { OutputView } from "./components/OutputView";
@@ -101,12 +101,14 @@ export default function App() {
   };
 
   // Save to history vault
-  const handleSaveToHistory = (markdown: string, routeDet: "notes" | "chef") => {
+  const handleSaveToHistory = (markdown: string, routeDet: "notes" | "chef", tags?: string[]) => {
     if (!markdown) return;
 
     // Extract title from markdown
     const firstLine = markdown.split("\n")[0] || "";
-    const cleanTitle = firstLine.replace(/^[#\s🧠🍳]+/, "").trim() || (routeDet === "chef" ? "Dorm Chef Recipe" : "Untangled Note");
+    const cleanTitle = firstLine.replace(/^[#\s]+/, "").trim() || (routeDet === "chef" ? "Dorm Chef Recipe" : "Untangled Note");
+
+    const itemTags = tags && tags.length > 0 ? tags : [routeDet === "chef" ? "Recipe" : "Study Note"];
 
     const newItem: UntangleHistoryItem = {
       id: Date.now().toString(),
@@ -117,7 +119,7 @@ export default function App() {
       routeDetected: routeDet,
       outputMarkdown: markdown,
       budget,
-      tags: [routeDet === "chef" ? "Recipe" : "Study Note"],
+      tags: itemTags,
     };
 
     const updated = [newItem, ...history];
@@ -158,16 +160,16 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF4E0] text-black font-sans selection:bg-[#FF90E8] pb-16">
+    <div className="min-h-screen bg-[#FAF8F5] text-black font-sans selection:bg-[#ec4899] selection:text-white pb-16">
       
-      {/* Header */}
-      <Header
+      {/* Hero Section */}
+      <HeroSection
         historyCount={history.length}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onReset={handleReset}
       />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
         
         {/* Preset Selector */}
         <PresetBar onSelectPreset={handleSelectPreset} />

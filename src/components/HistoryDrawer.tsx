@@ -25,9 +25,11 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
   if (!isOpen) return null;
 
   const filtered = history.filter((item) => {
+    const query = search.toLowerCase();
     const matchesSearch =
-      item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.outputMarkdown.toLowerCase().includes(search.toLowerCase());
+      item.title.toLowerCase().includes(query) ||
+      item.outputMarkdown.toLowerCase().includes(query) ||
+      (item.tags && item.tags.some((t) => t.toLowerCase().includes(query)));
     const matchesRoute = filterRoute === "all" || item.routeDetected === filterRoute;
     return matchesSearch && matchesRoute;
   });
@@ -78,23 +80,25 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             </button>
             <button
               onClick={() => setFilterRoute("notes")}
-              className={`flex-1 py-1.5 px-2 border-3 border-black text-xs font-black uppercase ${
+              className={`flex-1 py-1.5 px-2 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
                 filterRoute === "notes"
-                  ? "bg-[#00F5FF] text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                  : "bg-white text-black"
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-black border-black/15 hover:bg-black/5"
               }`}
             >
-              🧠 NOTES
+              <Brain className="w-3.5 h-3.5" />
+              <span>notes</span>
             </button>
             <button
               onClick={() => setFilterRoute("chef")}
-              className={`flex-1 py-1.5 px-2 border-3 border-black text-xs font-black uppercase ${
+              className={`flex-1 py-1.5 px-2 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
                 filterRoute === "chef"
-                  ? "bg-[#B5FFD9] text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                  : "bg-white text-black"
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-black border-black/15 hover:bg-black/5"
               }`}
             >
-              🍳 CHEF
+              <Utensils className="w-3.5 h-3.5" />
+              <span>chef</span>
             </button>
           </div>
         </div>
@@ -118,13 +122,23 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
               >
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <span
-                    className={`text-[10px] font-black px-2 py-0.5 border-2 border-black uppercase ${
+                    className={`text-[10px] font-semibold px-2 py-0.5 border rounded-full flex items-center gap-1 ${
                       item.routeDetected === "chef"
-                        ? "bg-[#B5FFD9] text-black"
-                        : "bg-[#00F5FF] text-black"
+                        ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
+                        : "bg-black/5 text-black/70 border-black/15"
                     }`}
                   >
-                    {item.routeDetected === "chef" ? "🍳 DORM CHEF" : "🧠 NOTE ENGINE"}
+                    {item.routeDetected === "chef" ? (
+                      <>
+                        <Utensils className="w-3 h-3" />
+                        <span>dorm chef</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="w-3 h-3" />
+                        <span>note engine</span>
+                      </>
+                    )}
                   </span>
                   <span className="text-[10px] font-black text-black flex items-center gap-1">
                     <Clock className="w-3 h-3 stroke-[3]" />
@@ -145,6 +159,19 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                 <p className="text-xs text-gray-800 font-bold line-clamp-2 mb-2">
                   {item.outputMarkdown.replace(/[#*`_~[\]]/g, "")}
                 </p>
+
+                {item.tags && item.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {item.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] font-semibold bg-[#ec4899]/15 text-[#ec4899] border border-[#ec4899]/30 px-2 py-0.5 rounded-md"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between border-t-2 border-black pt-2 text-[11px] font-black uppercase">
                   <button

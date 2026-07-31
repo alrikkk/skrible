@@ -15,34 +15,36 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
   if (!ingredients || ingredients.length === 0) return null;
 
   return (
-    <div className="mt-6 bg-[#B5FFD9] border-4 border-black p-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] font-sans">
-      <div className="flex items-center justify-between mb-4 border-b-4 border-black pb-3">
+    <div className="mt-6 bg-[#FAF8F5] border border-black/15 rounded-2xl p-5 shadow-xs font-sans">
+      <div className="flex items-center justify-between mb-4 border-b border-black/10 pb-3">
         <div className="flex items-center gap-2">
-          <ShoppingCart className="w-5 h-5 text-black stroke-[3]" />
-          <h4 className="font-black text-sm uppercase text-black tracking-tight">
-            🛒 INTERACTIVE DORM SHOPPING CHECKLIST
+          <ShoppingCart className="w-4 h-4 text-[#ec4899]" />
+          <h4 className="font-semibold text-sm text-black tracking-tight">
+            dorm shopping checklist
           </h4>
         </div>
-        <span className="text-xs font-black bg-white border-2 border-black px-2.5 py-1 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-          {Object.values(checked).filter(Boolean).length} / {ingredients.length} READY
+        <span className="text-xs font-semibold bg-white border border-black/15 px-2.5 py-1 rounded-full">
+          {Object.values(checked).filter(Boolean).length} / {ingredients.length} ready
         </span>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {ingredients.map((item, idx) => {
           const isDone = checked[idx];
           return (
             <div
               key={idx}
               onClick={() => toggleCheck(idx)}
-              className={`flex items-center gap-3 p-2.5 border-3 border-black cursor-pointer transition-all ${
-                isDone ? "bg-white/50 line-through opacity-70" : "bg-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"
+              className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
+                isDone ? "bg-black/5 border-black/10 line-through opacity-60" : "bg-white border-black/15 hover:border-black/30 shadow-2xs"
               }`}
             >
-              <div className="w-6 h-6 flex items-center justify-center bg-white border-2 border-black text-black font-black">
-                {isDone ? <Check className="w-4 h-4 text-black stroke-[4]" /> : null}
+              <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                isDone ? "bg-[#ec4899] border-[#ec4899] text-white" : "border-black/30 bg-white"
+              }`}>
+                {isDone ? <Check className="w-3.5 h-3.5 text-white stroke-[3]" /> : null}
               </div>
-              <span className="font-black text-xs uppercase text-black">{item}</span>
+              <span className="font-medium text-xs text-black">{item}</span>
             </div>
           );
         })}
