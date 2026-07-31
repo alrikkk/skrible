@@ -1,17 +1,19 @@
 import React, { useRef } from "react";
-import { History, RefreshCw, Sparkles, Mic, FileText, Utensils, ArrowDownRight } from "lucide-react";
+import { History, RefreshCw, Sparkles, Mic, FileText, Utensils, ArrowDownRight, ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
 
 interface HeroSectionProps {
   historyCount: number;
   onOpenHistory: () => void;
   onReset: () => void;
+  onStart: () => void;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   historyCount,
   onOpenHistory,
   onReset,
+  onStart,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,13 +38,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="flex items-center gap-2">
             <button 
               onClick={onReset}
-              className="group flex items-center gap-1.5 text-left cursor-pointer focus:outline-none"
+              className="group flex items-center gap-2 text-left cursor-pointer focus:outline-none"
               title="skrible home"
             >
+              <img 
+                src="/assets/scribble.webp" 
+                alt="skrible logo" 
+                className="h-8 sm:h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+                referrerPolicy="no-referrer"
+              />
               <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black font-sans lowercase hover:text-[#ec4899] transition-colors">
                 skrible
               </span>
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ec4899] inline-block animate-pulse" />
             </button>
             <span className="text-xs font-medium text-black/50 ml-2 hidden sm:inline-block">
               / student note & meal untangler
@@ -74,16 +81,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <div className="max-w-2xl mb-10 pt-2">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ec4899]/10 text-[#ec4899] text-xs font-semibold mb-4">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>messy thoughts in → clean notes & recipes out</span>
+            <span>your messy-life co-pilot</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-black lowercase leading-[1.1] mb-4">
             untangle your messy student life.
           </h1>
 
-          <p className="text-base sm:text-lg text-black/70 leading-relaxed">
+          <p className="text-base sm:text-lg text-black/70 leading-relaxed mb-6">
             turn chaotic 2-hour lecture audio, scribbled notes, and random dorm fridge leftovers into clean summaries, study decks, and $5 survival recipes.
           </p>
+
+          <button
+            onClick={onStart}
+            className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 bg-black hover:bg-[#ec4899] text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer group"
+          >
+            <span>Lets Start</span>
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
 
         {/* SCATTERED DESK CANVAS / CORKBOARD ARTWORK */}
@@ -103,14 +118,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* CARDS CONTAINER */}
           <div className="grid grid-cols-1 md:block gap-4 relative z-10">
 
-            {/* OBJECT 1: Voice Memo Phone Screen */}
+            {/* OBJECT 1: Voice Memo Phone Screen (Zone 1: Top Left) */}
             <motion.div 
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
               whileHover={{ scale: 1.04, zIndex: 40 }}
               whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:top-12 md:left-8 w-full md:w-64 bg-black text-white p-3.5 rounded-2xl shadow-md md:shadow-xl cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none"
+              className="relative md:absolute md:top-8 md:left-6 w-full md:w-60 bg-black text-white p-3.5 rounded-2xl shadow-md md:shadow-xl cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none"
             >
               {/* Phone Speaker & Camera notch */}
               <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-3" />
@@ -143,14 +158,50 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
             </motion.div>
 
-            {/* OBJECT 2: Realistic Yellow Sticky Note Sticker */}
+            {/* OBJECT 5: Triple T Dorm Mascot Polaroid (Zone 2: Top Center) */}
+            <motion.div 
+              drag
+              dragConstraints={containerRef}
+              dragElastic={0.05}
+              whileHover={{ scale: 1.05, zIndex: 45 }}
+              whileDrag={{ scale: 1.1, zIndex: 50 }}
+              className="relative md:absolute md:top-6 md:left-1/2 md:-translate-x-1/2 w-full md:w-52 bg-white p-2.5 pt-4 rounded-sm shadow-xl border border-black/15 cursor-grab active:cursor-grabbing rotate-0 md:-rotate-2 select-none touch-none overflow-visible z-30"
+            >
+              {/* Realistic Scotch tape taped on top of the card */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-5 bg-white/40 border-x border-y border-white/60 shadow-[0_2px_5px_rgba(0,0,0,0.15)] backdrop-blur-[2px] rotate-[-1deg] z-40 pointer-events-none flex items-center justify-center [clip-path:polygon(0_0,95%_2%,100%_100%,3%_98%)]">
+                <div className="w-full h-[1px] bg-white/50" />
+              </div>
+
+              {/* Photo Frame Container */}
+              <div className="relative w-full aspect-[4/3] bg-stone-900 rounded-xs overflow-hidden border border-black/20 shadow-inner group">
+                {/* Static Mascot Image Asset */}
+                <img 
+                  src="/assets/images.jpeg" 
+                  alt="Triple T Dorm Mascot" 
+                  className="w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+
+              {/* Photo Caption */}
+              <div className="pt-2 text-center">
+                <p className="text-xs font-mono font-bold text-black tracking-tight">
+                  Triple T
+                </p>
+                <p className="text-[10px] font-sans text-gray-500 italic mt-0.5">
+                  Dorm Mascot
+                </p>
+              </div>
+            </motion.div>
+
+            {/* OBJECT 2: Realistic Yellow Sticky Note Sticker (Zone 3: Top Right) */}
             <motion.div 
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
               whileHover={{ scale: 1.04, zIndex: 40 }}
               whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:top-12 md:right-8 w-full md:w-72 bg-gradient-to-br from-[#FEF9C3] via-[#FFF08A] to-[#FDE047] text-black p-4 pt-5 rounded-b-xs rounded-t-sm shadow-[4px_10px_20px_-3px_rgba(0,0,0,0.15)] border border-yellow-300/90 cursor-grab active:cursor-grabbing rotate-0 md:rotate-4 overflow-hidden select-none touch-none"
+              className="relative md:absolute md:top-8 md:right-6 w-full md:w-64 bg-gradient-to-br from-[#FEF9C3] via-[#FFF08A] to-[#FDE047] text-black p-4 pt-5 rounded-b-xs rounded-t-sm shadow-[4px_10px_20px_-3px_rgba(0,0,0,0.15)] border border-yellow-300/90 cursor-grab active:cursor-grabbing rotate-0 md:rotate-4 overflow-hidden select-none touch-none"
             >
               {/* Translucent adhesive tape on top */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-5 bg-[#ec4899]/35 border-x border-y border-[#ec4899]/50 backdrop-blur-[1px] rotate-1 shadow-2xs pointer-events-none" />
@@ -180,14 +231,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
             </motion.div>
 
-            {/* OBJECT 3: Crumpled Receipt */}
+            {/* OBJECT 3: Crumpled Receipt (Zone 4: Bottom Left) */}
             <motion.div 
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
               whileHover={{ scale: 1.04, zIndex: 40 }}
               whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:bottom-10 md:left-12 w-full md:w-60 bg-white text-black p-3.5 rounded-xl md:rounded-sm shadow-md border border-dashed border-gray-300 cursor-grab active:cursor-grabbing rotate-0 md:-rotate-2 select-none touch-none"
+              className="relative md:absolute md:bottom-12 md:left-8 w-full md:w-56 bg-white text-black p-3.5 rounded-xl md:rounded-sm shadow-md border border-dashed border-gray-300 cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none"
             >
               <div className="text-center border-b border-dashed border-gray-300 pb-2 mb-2">
                 <p className="text-[10px] font-mono font-bold text-gray-700 tracking-widest uppercase">
@@ -222,56 +273,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
             </motion.div>
 
-            {/* OBJECT 5: Taped POS RONDA Meme Note */}
-            <motion.div 
-              drag
-              dragConstraints={containerRef}
-              dragElastic={0.05}
-              whileHover={{ scale: 1.05, zIndex: 45 }}
-              whileDrag={{ scale: 1.1, zIndex: 50 }}
-              className="relative md:absolute md:top-6 md:left-1/2 md:-translate-x-1/2 w-full md:w-64 bg-white p-3 pt-5 rounded-sm shadow-xl border border-black/15 cursor-grab active:cursor-grabbing rotate-0 md:-rotate-2 select-none touch-none overflow-visible z-30"
-            >
-              {/* Realistic Scotch tape taped on top of the card */}
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-28 h-7 bg-white/40 border-x border-y border-white/60 shadow-[0_2px_5px_rgba(0,0,0,0.15)] backdrop-blur-[2px] rotate-[-1deg] z-40 pointer-events-none flex items-center justify-center [clip-path:polygon(0_0,95%_2%,100%_100%,3%_98%)]">
-                <div className="w-full h-[1px] bg-white/50" />
-              </div>
-
-              {/* Photo Frame Container */}
-              <div className="relative w-full aspect-[4/3] bg-stone-900 rounded-xs overflow-hidden border border-black/20 shadow-inner group">
-                {/* Static Mascot Image Asset */}
-                <img 
-                  src="/assets/images.jpeg" 
-                  alt="PENTUNG POS RONDA" 
-                  className="w-full h-full object-cover" 
-                  referrerPolicy="no-referrer"
-                />
-
-                {/* Live Badge */}
-                <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-mono px-2 py-0.5 rounded border border-white/20 flex items-center gap-1 pointer-events-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>3:15 AM NIGHT PATROL</span>
-                </div>
-              </div>
-
-              {/* Photo Caption */}
-              <div className="pt-2 text-center">
-                <p className="text-[11px] font-mono font-bold text-black uppercase tracking-tight flex items-center justify-center gap-1">
-                  <span>PENTUNG POS RONDA ★</span>
-                </p>
-                <p className="text-[10px] font-sans text-gray-500 italic mt-0.5">
-                  stay awake for 8am exam
-                </p>
-              </div>
-            </motion.div>
-
-            {/* OBJECT 4: Fridge Sticky Note Polaroid */}
+            {/* OBJECT 4: Fridge Sticky Note Polaroid (Zone 5: Bottom Right) */}
             <motion.div 
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
               whileHover={{ scale: 1.04, zIndex: 40 }}
               whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:bottom-10 md:right-12 w-full md:w-56 bg-white p-2.5 rounded-xl md:rounded shadow-md border border-black/10 cursor-grab active:cursor-grabbing rotate-0 md:rotate-5 select-none touch-none"
+              className="relative md:absolute md:bottom-12 md:right-8 w-full md:w-56 bg-white p-2.5 rounded-xl md:rounded shadow-md border border-black/10 cursor-grab active:cursor-grabbing rotate-0 md:rotate-4 select-none touch-none"
             >
               {/* Polaroid photo placeholder */}
               <div className="w-full h-24 bg-gradient-to-br from-amber-100 to-amber-200 rounded p-2 flex flex-col justify-between border border-amber-300/50">
