@@ -6,6 +6,12 @@
     color: #000000;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  html.dark body, body.dark {
+    background-color: #121212;
+    color: #f3f4f6;
   }
 }
 
@@ -26,6 +32,19 @@
     1px 1px 0px #000;
 }
 
+html.dark .scribble-text {
+  background-color: #1a1a1a;
+  background-image: 
+    repeating-linear-gradient(45deg, #ffffff 0, #ffffff 2px, transparent 0, transparent 8px),
+    repeating-linear-gradient(-45deg, #FF90E8 0, #FF90E8 2px, transparent 0, transparent 8px);
+  text-shadow: 
+    3px 3px 0px #1a1a1a,
+    -1px -1px 0px #1a1a1a,
+    1px -1px 0px #1a1a1a,
+    -1px 1px 0px #1a1a1a,
+    1px 1px 0px #1a1a1a;
+}
+
 /* Custom Neo-Brutalist scrollbars */
 ::-webkit-scrollbar {
   width: 10px;
@@ -37,11 +56,107 @@
   border-left: 3px solid #000000;
 }
 
+html.dark ::-webkit-scrollbar-track {
+  background: #121212;
+  border-left: 3px solid #333333;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #FF90E8;
   border: 3px solid #000000;
 }
 
+html.dark ::-webkit-scrollbar-thumb {
+  background: #FF90E8;
+  border: 3px solid #121212;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #00F5FF;
 }
+
+@keyframes scribbleDraw {
+  0% {
+    stroke-dashoffset: var(--path-length, 5000);
+  }
+  65% {
+    stroke-dashoffset: 0;
+  }
+  85% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: var(--path-length, 5000);
+  }
+}
+
+.animate-scribble {
+  animation: scribbleDraw 3.2s ease-in-out infinite;
+}
+
+/* Dark mode overrides for background colors & borders */
+html.dark .bg-\[\#FAF8F5\] {
+  background-color: #1a1a1a !important;
+}
+
+html.dark .bg-\[\#FFF4E0\] {
+  background-color: #121212 !important;
+}
+
+html.dark .bg-white {
+  background-color: #222222 !important;
+  color: #f3f4f6 !important;
+}
+
+html.dark .bg-black\/5 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .text-black {
+  color: #f3f4f6 !important;
+}
+
+html.dark .text-black\/80 {
+  color: rgba(243, 244, 246, 0.85) !important;
+}
+
+html.dark .text-black\/70 {
+  color: rgba(243, 244, 246, 0.7) !important;
+}
+
+html.dark .text-black\/60 {
+  color: rgba(243, 244, 246, 0.6) !important;
+}
+
+html.dark .text-black\/50 {
+  color: rgba(243, 244, 246, 0.5) !important;
+}
+
+html.dark .border-black\/10,
+html.dark .border-black\/15,
+html.dark .border-black\/20 {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark .border-black {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+html.dark .hero-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.15) 0.75px, transparent 0.75px) !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #1a1a1a !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: rgba(243, 244, 246, 0.4) !important;
+}
+
+

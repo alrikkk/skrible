@@ -1,0 +1,47 @@
+import React, { useEffect, useRef } from "react";
+
+interface ScribbleLogoProps {
+  className?: string;
+}
+
+export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({ className = "h-10 w-auto text-black" }) => {
+  const pathRef = useRef<SVGPathElement>(null);
+
+  useEffect(() => {
+    const path = pathRef.current;
+    if (!path) return;
+    
+    try {
+      const length = Math.ceil(path.getTotalLength()) + 50;
+      path.style.setProperty("--path-length", `${length}px`);
+      path.style.strokeDasharray = `${length}px`;
+      path.style.strokeDashoffset = `${length}px`;
+    } catch {
+      // Fallback if SVG length calculation fails
+      path.style.setProperty("--path-length", "10000px");
+      path.style.strokeDasharray = "10000px";
+      path.style.strokeDashoffset = "10000px";
+    }
+  }, []);
+
+  return (
+    <span className={`inline-flex items-center justify-center shrink-0 ${className}`}>
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        viewBox="0 0 900 650" 
+        className="h-full w-auto max-h-full overflow-visible"
+        fill="none"
+      >
+        <path
+          ref={pathRef}
+          className="animate-scribble"
+          stroke="currentColor"
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M 260 80 C 290 40, 360 40, 390 70 C 430 45, 500 70, 510 120 C 550 145, 560 210, 530 250 C 560 290, 530 350, 480 360 C 450 400, 380 400, 340 370 C 300 400, 230 380, 210 330 C 170 320, 150 250, 180 200 C 150 150, 190 90, 260 80 Z M 240 180 Q 320 110, 420 160 Q 480 200, 440 260 Q 380 320, 280 280 Q 210 240, 260 160 Q 320 120, 450 180 Q 500 230, 430 290 Q 330 330, 240 250 Q 190 190, 290 130 Q 380 100, 460 150 Q 510 210, 420 280 Q 310 320, 230 220 Q 200 150, 310 140 Q 410 130, 470 200 Q 480 270, 390 300 Q 280 300, 220 200 Q 200 130, 330 110 Q 440 110, 480 180 Q 470 250, 360 290 Q 260 290, 230 190 Q 230 130, 360 130 Q 460 140, 450 220 Q 420 280, 310 280 Q 240 260, 260 190 Q 290 150, 400 160 Q 460 170, 430 240 Q 380 290, 280 270 Q 220 230, 280 170 Q 350 130, 430 170 Q 470 210, 410 260 Q 330 290, 260 240 Q 230 200, 320 160 Q 410 150, 450 210 Q 450 260, 370 280 Q 280 270, 250 210 Q 250 160, 360 150 Q 440 170, 410 230 Q 360 270, 290 250 Q 240 220, 300 180 Q 380 160, 420 210 Q 420 250, 340 260 M 230 390 A 24 24 0 1 1 230 389.9 M 180 430 A 18 18 0 1 1 180 429.9 M 135 460 A 13 13 0 1 1 135 459.9"
+        />
+      </svg>
+    </span>
+  );
+};

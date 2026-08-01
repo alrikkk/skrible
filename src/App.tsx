@@ -6,12 +6,23 @@ import { OutputView } from "./components/OutputView";
 import { FlashcardModal } from "./components/FlashcardModal";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { LoginScreen, UserProfile } from "./components/LoginScreen";
+import { ScribbleLogo } from "./components/ScribbleLogo";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample } from "./types";
 import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut } from "lucide-react";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<"home" | "login" | "workspace">("home");
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
+
+  const handleBackToHomeClick = () => {
+    if (currentUser) {
+      setShowLogoutModal(true);
+    } else {
+      setCurrentPage("home");
+    }
+  };
   const [route, setRoute] = useState<RouteMode>("auto");
   const [promptText, setPromptText] = useState<string>("");
   const [budget, setBudget] = useState<string>("");
@@ -21,6 +32,34 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [outputMarkdown, setOutputMarkdown] = useState<string>("");
   const [routeDetected, setRouteDetected] = useState<"notes" | "chef">("notes");
+
+  // Dark Mode Theme State (Defaults to Light mode)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const savedTheme = localStorage.getItem("skrible_theme");
+      return savedTheme === "dark";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (isDarkMode) {
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("skrible_theme", "dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("skrible_theme", "light");
+      }
+    } catch (e) {
+      console.error("Failed to set theme in localStorage", e);
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => !prev);
+  };
 
   // History & Storage
   const [history, setHistory] = useState<UntangleHistoryItem[]>([]);
@@ -198,6 +237,8 @@ export default function App() {
             onOpenHistory={() => setIsHistoryOpen(true)}
             onReset={handleReset}
             onStart={() => setCurrentPage("login")}
+            isDark={isDarkMode}
+            onToggleTheme={toggleTheme}
           />
         </div>
       ) : currentPage === "login" ? (
@@ -205,45 +246,49 @@ export default function App() {
         <LoginScreen
           onLoginSuccess={handleLoginSuccess}
           onBackToHome={() => setCurrentPage("home")}
+          isDark={isDarkMode}
+          onToggleTheme={toggleTheme}
         />
       ) : (
         /* Workspace Webpage View */
         <div>
           {/* Header Navigation for Workspace Page */}
-          <header className="sticky top-0 z-30 bg-[#FAF8F5]/90 backdrop-blur-md border-b border-black/10 py-4 px-4 sm:px-8">
+          <header className="sticky top-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-black/10 dark:border-white/10 py-4 px-4 sm:px-8">
             <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setCurrentPage("home")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black hover:text-[#ec4899] bg-white border border-black/20 rounded-lg shadow-2xs hover:border-[#ec4899] transition-all cursor-pointer"
+                  onClick={handleBackToHomeClick}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white hover:text-[#ec4899] bg-white dark:bg-[#2a2a2a] border border-black/20 dark:border-white/20 rounded-lg shadow-2xs hover:border-[#ec4899] transition-all cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back to Home</span>
                 </button>
 
-                <div className="h-4 w-px bg-black/15 hidden sm:block" />
+                <div className="h-4 w-px bg-black/15 dark:bg-white/15 hidden sm:block" />
 
                 <button
-                  onClick={() => setCurrentPage("home")}
-                  className="flex items-center gap-2 text-xl font-extrabold text-black font-sans lowercase hover:text-[#ec4899] transition-colors cursor-pointer"
+                  onClick={handleBackToHomeClick}
+                  className="flex items-center gap-2 text-xl font-extrabold text-black dark:text-white font-sans lowercase hover:text-[#ec4899] transition-colors cursor-pointer group"
                 >
-                  <img 
-                    src="/assets/scribble.webp" 
-                    alt="skrible logo" 
-                    className="h-7 w-auto object-contain shrink-0" 
-                    referrerPolicy="no-referrer"
-                  />
+                  <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-[#ec4899] transition-colors" />
                   <span>skrible</span>
                 </button>
-                <span className="text-xs font-mono text-black/50 hidden md:inline">
+                <span className="text-xs font-mono text-black/50 dark:text-white/50 hidden md:inline">
                   / untangler tool
                 </span>
               </div>
 
               <div className="flex items-center gap-2 sm:gap-3">
-                {/* User Profile Badge */}
+                {/* Theme Toggle Button */}
+                <ThemeToggle isDark={isDarkMode} onToggle={toggleTheme} />
+
+                {/* User Profile Badge or Sign In Button */}
                 {currentUser ? (
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white border border-black/15 rounded-lg text-xs font-medium shadow-2xs">
+                  <button
+                    onClick={() => setCurrentPage("login")}
+                    className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/15 dark:border-white/20 rounded-lg text-xs font-medium shadow-2xs cursor-pointer transition-colors text-black dark:text-white"
+                    title="User Account Options"
+                  >
                     {currentUser.avatar ? (
                       <img src={currentUser.avatar} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
                     ) : (
@@ -252,18 +297,19 @@ export default function App() {
                       </div>
                     )}
                     <span className="hidden sm:inline font-mono font-semibold max-w-[110px] truncate">{currentUser.name}</span>
-                    <button
-                      onClick={handleSignOut}
-                      className="text-black/50 hover:text-black p-0.5 rounded transition-colors cursor-pointer ml-0.5"
-                      title="Sign Out / Switch Account"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                    <LogOut
+                      className="w-3.5 h-3.5 text-black/50 dark:text-white/50 hover:text-[#ec4899] transition-colors ml-0.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSignOut();
+                      }}
+                    />
+                  </button>
                 ) : (
                   <button
                     onClick={() => setCurrentPage("login")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black bg-white hover:bg-stone-100 border border-black/20 rounded-lg cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/20 dark:border-white/20 rounded-lg cursor-pointer transition-colors"
+                    title="Sign In to account"
                   >
                     <User className="w-3.5 h-3.5" />
                     <span>Sign In</span>
@@ -272,7 +318,7 @@ export default function App() {
 
                 <button
                   onClick={handleReset}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 hover:text-black bg-white hover:bg-black/5 border border-black/20 rounded-lg transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white bg-white dark:bg-[#2a2a2a] hover:bg-black/5 dark:hover:bg-white/10 border border-black/20 dark:border-white/20 rounded-lg transition-all cursor-pointer"
                   title="Clear all inputs"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -281,7 +327,7 @@ export default function App() {
 
                 <button
                   onClick={() => setIsHistoryOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black dark:bg-[#333333] hover:bg-[#ec4899] dark:hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer"
                 >
                   <History className="w-3.5 h-3.5" />
                   <span>saved vault ({history.length})</span>
@@ -378,6 +424,54 @@ export default function App() {
           <div className="bg-[#FF90E8] border-4 border-black p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center gap-3 font-black text-black text-lg uppercase">
             <div className="w-6 h-6 border-4 border-black border-t-transparent animate-spin" />
             <span>GENERATING STUDY CRAM FLASHCARDS...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#222222] text-black dark:text-white border-2 border-black dark:border-white/30 rounded-2xl p-6 max-w-md w-full shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.2)]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-300 dark:border-amber-700/50 shrink-0">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold">Log Out Confirmation</h3>
+                <p className="text-xs text-black/60 dark:text-white/60">Session Notification</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-black/80 dark:text-white/80 mb-6 leading-relaxed">
+              {currentUser ? (
+                <>
+                  You are currently signed in as <strong className="font-semibold text-black dark:text-white">{currentUser.name}</strong>. Returning to the Home page will log you out from your account.
+                </>
+              ) : (
+                <>Returning to the Home page will end your current session. Are you sure you want to proceed?</>
+              )}
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-black dark:text-white bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/20 dark:border-white/20 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowLogoutModal(false);
+                  if (currentUser) {
+                    handleSignOut();
+                  }
+                  setCurrentPage("home");
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#ec4899] hover:bg-[#db2777] border border-black rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+              >
+                Log Out & Go Home
+              </button>
+            </div>
           </div>
         </div>
       )}
