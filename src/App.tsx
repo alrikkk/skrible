@@ -10,10 +10,11 @@ import { ScribbleLogo } from "./components/ScribbleLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample } from "./types";
 import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut } from "lucide-react";
+import { useAuth } from "./context/AuthContext";
 
 export default function App() {
+  const { currentUser, signOut: authSignOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<"home" | "login" | "workspace">("home");
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
 
   const handleBackToHomeClick = () => {
@@ -22,6 +23,16 @@ export default function App() {
     } else {
       setCurrentPage("home");
     }
+  };
+
+  const handleLoginSuccess = (_user: UserProfile) => {
+    setCurrentPage("workspace");
+  };
+
+  const handleSignOut = async () => {
+    await authSignOut();
+    setShowLogoutModal(false);
+    setCurrentPage("login");
   };
   const [route, setRoute] = useState<RouteMode>("auto");
   const [promptText, setPromptText] = useState<string>("");
@@ -71,41 +82,18 @@ export default function App() {
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState<boolean>(false);
   const [isLoadingFlashcards, setIsLoadingFlashcards] = useState<boolean>(false);
 
-  // Load history and user from localStorage on mount
+  // Load history from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem("skrible_history");
       if (saved) {
         setHistory(JSON.parse(saved));
       }
-      const savedUser = localStorage.getItem("skrible_user");
-      if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
-      }
     } catch (e) {
-      console.error("Failed to load data from localStorage", e);
+      console.error("Failed to load history from localStorage", e);
     }
   }, []);
 
-  const handleLoginSuccess = (user: UserProfile) => {
-    setCurrentUser(user);
-    try {
-      localStorage.setItem("skrible_user", JSON.stringify(user));
-    } catch (e) {
-      console.error("Failed to save user to localStorage", e);
-    }
-    setCurrentPage("workspace");
-  };
-
-  const handleSignOut = () => {
-    setCurrentUser(null);
-    try {
-      localStorage.removeItem("skrible_user");
-    } catch (e) {
-      console.error("Failed to remove user from localStorage", e);
-    }
-    setCurrentPage("login");
-  };
 
   // Save history to localStorage
   const saveHistoryToStorage = (updatedHistory: UntangleHistoryItem[]) => {

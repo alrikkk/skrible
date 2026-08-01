@@ -12,6 +12,14 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// GET /api/config - Serve runtime public config to frontend
+app.get("/api/config", (_req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+  });
+});
+
 // Helper to initialize GenAI client
 function getGenAI() {
   const apiKey = process.env.GEMINI_API_KEY;
