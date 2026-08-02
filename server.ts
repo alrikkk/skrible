@@ -12,6 +12,195 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Helper to convert Markdown lines to Notion block format
+function markdownToNotionBlocks(markdown: string) {
+  const lines = markdown.split("\n");
+  const blocks: any[] = [];
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (trimmed.startsWith("# ")) {
+      blocks.push({
+        object: "block",
+        type: "heading_1",
+        heading_1: {
+          rich_text: [{ type: "text", text: { content: trimmed.replace(/^#\s+/, "") } }],
+        },
+      });
+    } else if (trimmed.startsWith("## ")) {
+      blocks.push({
+        object: "block",
+        type: "heading_2",
+        heading_2: {
+          rich_text: [{ type: "text", text: { content: trimmed.replace(/^##\s+/, "") } }],
+        },
+      });
+    } else if (trimmed.startsWith("### ")) {
+      blocks.push({
+        object: "block",
+        type: "heading_3",
+        heading_3: {
+          rich_text: [{ type: "text", text: { content: trimmed.replace(/^###\s+/, "") } }],
+        },
+      });
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      blocks.push({
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: {
+          rich_text: [{ type: "text", text: { content: trimmed.replace(/^[-*]\s+/, "") } }],
+        },
+      });
+    } else if (/^\d+\.\s+/.test(trimmed)) {
+      blocks.push({
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: {
+          rich_text: [{ type: "text", text: { content: trimmed.replace(/^\d+\.\s+/, "") } }],
+        },
+      });
+    } else if (trimmed.startsWith("> ")) {
+      blocks.push({
+        object: "block",
+        type: "quote",
+        quote: {
+          rich_text: [{ type: "text", text: { content: trimmed.replace(/^>\s+/, "") } }],
+        },
+      });
+    } else {
+      const content = trimmed.slice(0, 2000);
+      blocks.push({
+        object: "block",
+        type: "paragraph",
+        paragraph: {
+          rich_text: [{ type: "text", text: { content } }],
+        },
+      });
+    }
+  }
+
+  return blocks.slice(0, 100); // Notion limit of 100 blocks per request
+}
+
+// POST /api/export-notion - Export untangled notes to Notion via API or Webhook
+app.post("/api/export-notion", async (req, res) => {
+  try {
+    const { mode, webhookUrl, notionToken, pageId, markdown, title, routeDetected } = req.body;
+
+    if (!markdown) {
+      return res.status(400).json({ error: "Markdown content is required." });
+    }
+
+    const noteTitle = title || (routeDetected === "chef" ? "Dorm Chef Recipe - Skrible Note" : "Untangled Notes - Skrible Note");
+
+    // MODE 1: Webhook Integration (Zapier / Make / N8N / Custom Notion Webhook)
+    if (mode === "webhook" || webhookUrl) {
+      if (!webhookUrl) {
+        return res.status(400).json({ error: "Webhook URL is required." });
+      }
+
+      const webhookResponse = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: noteTitle,
+          markdown,
+          routeDetected,
+          timestamp: new Date().toISOString(),
+          source: "Skrible App",
+        }),
+      });
+
+      if (!webhookResponse.ok) {
+        const errorText = await webhookResponse.text();
+        throw new Error(`Webhook endpoint returned status ${webhookResponse.status}: ${errorText || "Failed to trigger webhook"}`);
+      }
+
+      return res.json({
+        success: true,
+        message: "Successfully exported to Notion via Webhook!",
+      });
+    }
+
+    // MODE 2: Direct Notion API Integration
+    if (mode === "notion_api" || (notionToken && pageId)) {
+      if (!notionToken || !pageId) {
+        return res.status(400).json({ error: "Both Notion Internal Integration Token and Page/Database ID are required." });
+      }
+
+      // Format page ID (extract 32-char UUID or formatted UUID)
+      const cleanPageId = pageId.trim().replace(/https:\/\/(www\.)?notion\.so\//, "").replace(/\?v=.*/, "").split("-").pop() || pageId.trim();
+      
+      const blocks = markdownToNotionBlocks(markdown);
+
+      // Try creating new child page under target page ID
+      let notionRes = await fetch("https://api.notion.com/v1/pages", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${notionToken.trim()}`,
+          "Notion-Version": "2022-06-28",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          parent: { page_id: cleanPageId },
+          properties: {
+            title: {
+              title: [{ text: { content: noteTitle } }],
+            },
+          },
+          children: blocks,
+        }),
+      });
+
+      // If creating page directly fails (e.g., if parent is database or block), fallback to appending blocks directly to page
+      if (!notionRes.ok) {
+        const firstErr = await notionRes.json();
+        
+        // Retry appending blocks directly to parent block ID
+        notionRes = await fetch(`https://api.notion.com/v1/blocks/${cleanPageId}/children`, {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${notionToken.trim()}`,
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            children: [
+              {
+                object: "block",
+                type: "heading_1",
+                heading_1: { rich_text: [{ type: "text", text: { content: noteTitle } }] },
+              },
+              ...blocks,
+            ],
+          }),
+        });
+
+        if (!notionRes.ok) {
+          const secondErr = await notionRes.json();
+          throw new Error(
+            secondErr.message || firstErr.message || "Notion API error. Please check your Integration Token & Page ID permissions."
+          );
+        }
+      }
+
+      const notionData = await notionRes.json();
+      return res.json({
+        success: true,
+        pageUrl: notionData.url || `https://notion.so/${cleanPageId}`,
+        message: "Successfully created page in Notion!",
+      });
+    }
+
+    return res.status(400).json({ error: "Please specify either Notion Integration Token & Page ID or a Webhook URL." });
+  } catch (err: any) {
+    console.error("Error exporting to Notion:", err);
+    res.status(500).json({ error: err.message || "Failed to export note to Notion." });
+  }
+});
+
 // GET /api/config - Serve runtime public config to frontend
 app.get("/api/config", (_req, res) => {
   res.json({

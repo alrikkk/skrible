@@ -128,7 +128,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               dragElastic={0.05}
               whileHover={{ scale: 1.04, zIndex: 40 }}
               whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:top-8 md:left-6 w-full md:w-60 bg-black text-white p-3.5 rounded-2xl shadow-md md:shadow-xl cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none"
+              className="relative md:absolute md:top-8 md:left-6 w-full md:w-60 bg-black text-white p-3.5 rounded-2xl shadow-md md:shadow-xl cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none transform-gpu will-change-transform"
             >
               {/* Phone Speaker & Camera notch */}
               <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-3" />

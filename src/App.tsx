@@ -148,6 +148,11 @@ export default function App() {
 
       setOutputMarkdown(data.result);
       setRouteDetected(data.routeDetected || (route === "chef" ? "chef" : "notes"));
+
+      // Haptic feedback on successful untangle
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate([30, 50, 30]);
+      }
     } catch (error: any) {
       alert(error.message || "An error occurred while communicating with Skrible AI.");
     } finally {
@@ -180,6 +185,11 @@ export default function App() {
     const updated = [newItem, ...history];
     saveHistoryToStorage(updated);
     setIsSaved(true);
+
+    // Haptic feedback on save to vault
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([40]);
+    }
   };
 
   // Generate Flashcards
@@ -324,10 +334,7 @@ export default function App() {
             </div>
           </header>
 
-          <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
-            {/* Preset Selector */}
-            <PresetBar onSelectPreset={handleSelectPreset} />
-
+          <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 transition-all duration-200 ease-out">
             {/* Input Panel */}
             <InputPanel
               route={route}
@@ -360,16 +367,8 @@ export default function App() {
       )}
 
       {/* Footer Notice */}
-      <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 flex flex-col items-center gap-2">
-        {currentPage === "workspace" && (
-          <button
-            onClick={() => setCurrentPage("home")}
-            className="text-xs font-medium text-black/60 hover:text-[#ec4899] underline underline-offset-4 cursor-pointer mb-1"
-          >
-            ← Return to Landing Page
-          </button>
-        )}
-        <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-gray-400 select-none">
+      <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-2">
+        <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none">
           This is not Ai Slop
         </p>
       </footer>
@@ -389,6 +388,10 @@ export default function App() {
         }}
         onDeleteHistory={(id) => {
           const updated = history.filter((h) => h.id !== id);
+          saveHistoryToStorage(updated);
+        }}
+        onBulkDelete={(ids) => {
+          const updated = history.filter((h) => !ids.includes(h.id));
           saveHistoryToStorage(updated);
         }}
         onClearAll={() => {

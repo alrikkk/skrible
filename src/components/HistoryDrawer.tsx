@@ -1,6 +1,19 @@
 import React, { useState } from "react";
 import { UntangleHistoryItem } from "../types";
-import { X, Trash2, Search, Brain, Utensils, Bookmark, Clock, ArrowRight } from "lucide-react";
+import {
+  X,
+  Trash2,
+  Search,
+  Brain,
+  Utensils,
+  Bookmark,
+  Clock,
+  ArrowRight,
+  CheckSquare,
+  Square,
+  Check,
+  ListChecks,
+} from "lucide-react";
 
 interface HistoryDrawerProps {
   history: UntangleHistoryItem[];
@@ -9,6 +22,7 @@ interface HistoryDrawerProps {
   onSelectHistory: (item: UntangleHistoryItem) => void;
   onDeleteHistory: (id: string) => void;
   onClearAll: () => void;
+  onBulkDelete?: (ids: string[]) => void;
 }
 
 export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
@@ -18,9 +32,12 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
   onSelectHistory,
   onDeleteHistory,
   onClearAll,
+  onBulkDelete,
 }) => {
   const [search, setSearch] = useState("");
   const [filterRoute, setFilterRoute] = useState<"all" | "notes" | "chef">("all");
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   if (!isOpen) return null;
 
@@ -34,10 +51,69 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
     return matchesSearch && matchesRoute;
   });
 
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((item) => selectedIds.has(item.id));
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (allFilteredSelected) {
+      // Deselect all filtered
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((item) => next.delete(item.id));
+        return next;
+      });
+    } else {
+      // Select all filtered
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((item) => next.add(item.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDeleteAction = () => {
+    if (selectedIds.size === 0) return;
+
+    const count = selectedIds.size;
+    if (confirm(`Delete ${count} selected item${count > 1 ? "s" : ""} from your vault?`)) {
+      const idsArray = Array.from(selectedIds);
+      if (onBulkDelete) {
+        onBulkDelete(idsArray);
+      } else {
+        idsArray.forEach((id) => onDeleteHistory(id));
+      }
+
+      // Haptic feedback
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate([30, 40, 30]);
+      }
+
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+    }
+  };
+
+  const handleExitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end">
       <div className="bg-white border-l-4 border-black w-full max-w-md h-full p-6 shadow-2xl flex flex-col font-sans overflow-hidden">
-        
         {/* Drawer Header */}
         <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-4">
           <div className="flex items-center gap-2">
@@ -46,12 +122,37 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
               SAVED UNTANGLES
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="bg-[#FF90E8] text-black border-3 border-black p-1.5 hover:bg-pink-300 cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
-          >
-            <X className="w-5 h-5 stroke-[3]" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Selection Mode Toggle Button */}
+            {history.length > 0 && (
+              <button
+                onClick={() => {
+                  if (isSelectionMode) {
+                    handleExitSelectionMode();
+                  } else {
+                    setIsSelectionMode(true);
+                  }
+                }}
+                className={`p-1.5 border-3 border-black font-black text-xs uppercase flex items-center gap-1 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer ${
+                  isSelectionMode
+                    ? "bg-black text-white"
+                    : "bg-[#FFF4E0] hover:bg-amber-200 text-black"
+                }`}
+                title={isSelectionMode ? "Exit Selection Mode" : "Bulk Select Mode"}
+              >
+                <ListChecks className="w-4 h-4 stroke-[2.5]" />
+                <span className="hidden sm:inline">{isSelectionMode ? "Cancel" : "Select"}</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="bg-[#FF90E8] text-black border-3 border-black p-1.5 hover:bg-pink-300 cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            >
+              <X className="w-5 h-5 stroke-[3]" />
+            </button>
+          </div>
         </div>
 
         {/* Search & Filters */}
@@ -70,7 +171,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
           <div className="flex gap-2">
             <button
               onClick={() => setFilterRoute("all")}
-              className={`flex-1 py-1.5 px-2 border-3 border-black text-xs font-black uppercase ${
+              className={`flex-1 py-1.5 px-2 border-3 border-black text-xs font-black uppercase cursor-pointer ${
                 filterRoute === "all"
                   ? "bg-[#FF90E8] text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
                   : "bg-white text-black"
@@ -80,7 +181,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             </button>
             <button
               onClick={() => setFilterRoute("notes")}
-              className={`flex-1 py-1.5 px-2 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-1.5 px-2 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 filterRoute === "notes"
                   ? "bg-black text-white border-black"
                   : "bg-white text-black border-black/15 hover:bg-black/5"
@@ -91,7 +192,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             </button>
             <button
               onClick={() => setFilterRoute("chef")}
-              className={`flex-1 py-1.5 px-2 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-1.5 px-2 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 filterRoute === "chef"
                   ? "bg-black text-white border-black"
                   : "bg-white text-black border-black/15 hover:bg-black/5"
@@ -102,6 +203,43 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Bulk Selection Control Bar */}
+        {isSelectionMode && (
+          <div className="bg-[#FF90E8] border-3 border-black p-3 mb-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between gap-2 animate-fadeIn">
+            <button
+              onClick={handleToggleSelectAll}
+              className="flex items-center gap-1.5 bg-white border-2 border-black px-2.5 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-stone-100 cursor-pointer"
+            >
+              {allFilteredSelected ? (
+                <>
+                  <CheckSquare className="w-4 h-4 text-black stroke-[2.5]" />
+                  <span>Deselect All</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4 text-black stroke-[2.5]" />
+                  <span>Select All ({filtered.length})</span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-black uppercase">
+                {selectedIds.size} Selected
+              </span>
+
+              <button
+                onClick={handleBulkDeleteAction}
+                disabled={selectedIds.size === 0}
+                className="bg-[#FF6B6B] hover:bg-red-400 disabled:opacity-50 disabled:cursor-not-allowed text-black border-2 border-black px-3 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Delete ({selectedIds.size})</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Item List */}
         <div className="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -115,90 +253,136 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
               </p>
             </div>
           ) : (
-            filtered.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white border-3 border-black p-3.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-[#FFF4E0] transition-colors relative group"
-              >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <span
-                    className={`text-[10px] font-semibold px-2 py-0.5 border rounded-full flex items-center gap-1 ${
-                      item.routeDetected === "chef"
-                        ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
-                        : "bg-black/5 text-black/70 border-black/15"
+            filtered.map((item) => {
+              const isSelected = selectedIds.has(item.id);
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleSelectItem(item.id);
+                    }
+                  }}
+                  className={`border-3 border-black p-3.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all relative group ${
+                    isSelectionMode ? "cursor-pointer" : ""
+                  } ${
+                    isSelected
+                      ? "bg-[#FFF4E0] ring-2 ring-black"
+                      : "bg-white hover:bg-[#FFF4E0]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-2">
+                      {/* Checkbox in selection mode */}
+                      {isSelectionMode && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelectItem(item.id);
+                          }}
+                          className={`w-5 h-5 border-2 border-black flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected ? "bg-black text-white" : "bg-white"
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </button>
+                      )}
+
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 border rounded-full flex items-center gap-1 ${
+                          item.routeDetected === "chef"
+                            ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
+                            : "bg-black/5 text-black/70 border-black/15"
+                        }`}
+                      >
+                        {item.routeDetected === "chef" ? (
+                          <>
+                            <Utensils className="w-3 h-3" />
+                            <span>dorm chef</span>
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="w-3 h-3" />
+                            <span>note engine</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <span className="text-[10px] font-black text-black flex items-center gap-1">
+                      <Clock className="w-3 h-3 stroke-[3]" />
+                      {new Date(item.timestamp).toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+
+                  <h4
+                    onClick={(e) => {
+                      if (!isSelectionMode) {
+                        onSelectHistory(item);
+                        onClose();
+                      }
+                    }}
+                    className={`font-black text-sm text-black uppercase line-clamp-1 mb-1 ${
+                      isSelectionMode ? "" : "cursor-pointer hover:underline"
                     }`}
                   >
-                    {item.routeDetected === "chef" ? (
-                      <>
-                        <Utensils className="w-3 h-3" />
-                        <span>dorm chef</span>
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="w-3 h-3" />
-                        <span>note engine</span>
-                      </>
-                    )}
-                  </span>
-                  <span className="text-[10px] font-black text-black flex items-center gap-1">
-                    <Clock className="w-3 h-3 stroke-[3]" />
-                    {new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
+                    {item.title}
+                  </h4>
 
-                <h4
-                  onClick={() => {
-                    onSelectHistory(item);
-                    onClose();
-                  }}
-                  className="font-black text-sm text-black uppercase line-clamp-1 cursor-pointer hover:underline mb-1"
-                >
-                  {item.title}
-                </h4>
+                  <p className="text-xs text-gray-800 font-bold line-clamp-2 mb-2">
+                    {item.outputMarkdown.replace(/[#*`_~[\]]/g, "")}
+                  </p>
 
-                <p className="text-xs text-gray-800 font-bold line-clamp-2 mb-2">
-                  {item.outputMarkdown.replace(/[#*`_~[\]]/g, "")}
-                </p>
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {item.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[10px] font-semibold bg-[#ec4899]/15 text-[#ec4899] border border-[#ec4899]/30 px-2 py-0.5 rounded-md"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                {item.tags && item.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {item.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[10px] font-semibold bg-[#ec4899]/15 text-[#ec4899] border border-[#ec4899]/30 px-2 py-0.5 rounded-md"
+                  {!isSelectionMode && (
+                    <div className="flex items-center justify-between border-t-2 border-black pt-2 text-[11px] font-black uppercase">
+                      <button
+                        onClick={() => {
+                          onSelectHistory(item);
+                          onClose();
+                        }}
+                        className="text-black hover:underline flex items-center gap-1 cursor-pointer"
                       >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                        VIEW UNTANGLE <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
 
-                <div className="flex items-center justify-between border-t-2 border-black pt-2 text-[11px] font-black uppercase">
-                  <button
-                    onClick={() => {
-                      onSelectHistory(item);
-                      onClose();
-                    }}
-                    className="text-black hover:underline flex items-center gap-1"
-                  >
-                    VIEW UNTANGLE <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
-                  </button>
-
-                  <button
-                    onClick={() => onDeleteHistory(item.id)}
-                    className="bg-[#FF6B6B] hover:bg-red-400 text-black border border-black p-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                    title="Delete item"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 stroke-[3]" />
-                  </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteHistory(item.id);
+                        }}
+                        className="bg-[#FF6B6B] hover:bg-red-400 text-black border border-black p-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                        title="Delete item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Clear All Footer */}
-        {history.length > 0 && (
+        {history.length > 0 && !isSelectionMode && (
           <div className="pt-4 border-t-4 border-black mt-4 flex items-center justify-between">
             <span className="text-xs font-black text-black uppercase">
               Total Saved: {history.length}
@@ -211,7 +395,6 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             </button>
           </div>
         )}
-
       </div>
     </div>
   );

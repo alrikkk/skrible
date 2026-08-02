@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import { ShoppingChecklist } from "./ShoppingChecklist";
+import { NotionExportModal } from "./NotionExportModal";
 import {
   Copy,
   Check,
@@ -16,7 +17,9 @@ import {
   Zap,
   RotateCcw,
   Tag,
-  Plus
+  Plus,
+  ExternalLink,
+  Send
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -53,6 +56,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
 
   // Categorization tags state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -319,6 +323,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
           )}
 
           <button
+            onClick={() => setIsNotionModalOpen(true)}
+            className="flex items-center gap-1.5 bg-white hover:bg-stone-50 text-black border border-black/15 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:border-[#ec4899]"
+            title="Export to Notion page or webhook"
+          >
+            <Send className="w-3.5 h-3.5 text-[#ec4899]" />
+            <span>Export to Notion</span>
+          </button>
+
+          <button
             onClick={() => onSaveToHistory(markdown, routeDetected, selectedTags)}
             disabled={isSaved}
             className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
@@ -333,6 +346,14 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
         </div>
       </div>
+
+      {/* NOTION EXPORT MODAL */}
+      <NotionExportModal
+        isOpen={isNotionModalOpen}
+        onClose={() => setIsNotionModalOpen(false)}
+        markdown={markdown}
+        routeDetected={routeDetected}
+      />
 
       {/* CATEGORIZATION TAGS BAR */}
       <div className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
