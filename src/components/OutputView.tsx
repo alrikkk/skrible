@@ -261,15 +261,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
           
           <button
             onClick={handleReadAloud}
-            className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
               isSpeaking
                 ? "bg-[#ec4899] text-white border-[#ec4899] animate-pulse"
-                : "bg-white hover:bg-black/5 text-black border-black/15"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
             }`}
-            title="Read aloud using Web Speech API"
+            title="Listen to untangled note read aloud"
           >
-            {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Headphones className="w-3.5 h-3.5" />}
-            {isSpeaking ? "stop reading" : "read aloud"}
+            {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#ec4899]" />}
+            <span>{isSpeaking ? "Stop" : "Listen"}</span>
           </button>
 
           <button
