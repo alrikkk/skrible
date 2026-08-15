@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Check, ExternalLink, Sparkles, Send, Key, FileText, Globe, AlertCircle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { getAuthHeaders } from "../lib/supabaseClient";
 
 interface NotionExportModalProps {
   isOpen: boolean;
@@ -76,9 +77,13 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
     }
 
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/export-notion", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({
           mode,
           title: title.trim() || defaultTitle,

@@ -85,3 +85,21 @@ export const supabase = new Proxy({} as SupabaseClient, {
     return value;
   },
 });
+
+// Helper to provide Authorization token header or X-Guest-Mode header for API requests
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const client = getSupabase();
+    const { data } = await client.auth.getSession();
+    if (data?.session?.access_token) {
+      return {
+        Authorization: `Bearer ${data.session.access_token}`,
+      };
+    }
+  } catch (err) {
+    // Fall back to guest mode
+  }
+  return {
+    "X-Guest-Mode": "true",
+  };
+}

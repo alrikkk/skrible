@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,6 +12,149 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Supabase Admin client initialized with SUPABASE_SERVICE_ROLE_KEY
+let supabaseAdminInstance: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient | null {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey || supabaseUrl.includes("your-supabase-project")) {
+    return null;
+  }
+
+  if (!supabaseAdminInstance) {
+    supabaseAdminInstance = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+  return supabaseAdminInstance;
+}
+
+// In-memory rate limiting store for Guest mode requests
+// Maps IP address -> array of request timestamps (epoch ms)
+const guestIpUsage = new Map<string, number[]>();
+
+function getClientIp(req: express.Request): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.ip || req.socket.remoteAddress || "127.0.0.1";
+}
+
+function checkGuestRateLimit(ip: string): { allowed: boolean; count: number } {
+  const now = Date.now();
+  const windowMs = 24 * 60 * 60 * 1000; // rolling 24 hours
+  const cutoff = now - windowMs;
+
+  const timestamps = (guestIpUsage.get(ip) || []).filter((t) => t > cutoff);
+  guestIpUsage.set(ip, timestamps);
+
+  if (timestamps.length >= 5) {
+    return { allowed: false, count: timestamps.length };
+  }
+  return { allowed: true, count: timestamps.length };
+}
+
+function recordGuestUsage(ip: string) {
+  const now = Date.now();
+  const timestamps = guestIpUsage.get(ip) || [];
+  timestamps.push(now);
+  guestIpUsage.set(ip, timestamps);
+}
+
+interface AuthCheckResult {
+  allowed: boolean;
+  status?: number;
+  error?: string;
+  user?: any;
+  isGuest?: boolean;
+  ip?: string;
+}
+
+async function verifyAuthAndRateLimit(req: express.Request): Promise<AuthCheckResult> {
+  const authHeader = req.headers.authorization;
+  const isGuestHeader = req.headers["x-guest-mode"] === "true";
+
+  // 1. Bearer token present
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.replace(/^Bearer\s+/, "").trim();
+    const adminClient = getSupabaseAdmin();
+
+    if (adminClient) {
+      const { data, error } = await adminClient.auth.getUser(token);
+      if (error || !data?.user) {
+        if (isGuestHeader) {
+          const ip = getClientIp(req);
+          const limitCheck = checkGuestRateLimit(ip);
+          if (!limitCheck.allowed) {
+            return { allowed: false, status: 429, error: "Guest limit reached — sign in for more" };
+          }
+          return { allowed: true, isGuest: true, user: null, ip };
+        }
+        return { allowed: false, status: 401, error: "Unauthorized: Invalid or expired session." };
+      }
+
+      const user = data.user;
+      // Check user daily rate limit (30 requests per rolling 24-hour period)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count, error: countErr } = await adminClient
+        .from("usage_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", oneDayAgo);
+
+      if (!countErr && typeof count === "number" && count >= 30) {
+        return { allowed: false, status: 429, error: "Daily limit reached — try again tomorrow" };
+      }
+
+      return { allowed: true, isGuest: false, user };
+    } else {
+      // Fallback if SUPABASE_SERVICE_ROLE_KEY is not yet configured in secrets
+      return { allowed: true, isGuest: false, user: { id: "authenticated-user" } };
+    }
+  }
+
+  // 2. Guest Mode Header
+  if (isGuestHeader) {
+    const ip = getClientIp(req);
+    const limitCheck = checkGuestRateLimit(ip);
+    if (!limitCheck.allowed) {
+      return { allowed: false, status: 429, error: "Guest limit reached — sign in for more" };
+    }
+    return { allowed: true, isGuest: true, user: null, ip };
+  }
+
+  // 3. Neither token nor guest mode
+  return {
+    allowed: false,
+    status: 401,
+    error: "Unauthorized: Authentication token or X-Guest-Mode header required.",
+  };
+}
+
+async function recordUsageLog(authResult: AuthCheckResult, endpoint: string) {
+  try {
+    if (authResult.isGuest && authResult.ip) {
+      recordGuestUsage(authResult.ip);
+    } else if (authResult.user?.id) {
+      const adminClient = getSupabaseAdmin();
+      if (adminClient && authResult.user.id !== "authenticated-user") {
+        await adminClient.from("usage_logs").insert({
+          user_id: authResult.user.id,
+          endpoint,
+        });
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to record usage log for ${endpoint}:`, err);
+  }
+}
 
 // Helper to convert Markdown lines to Notion block format
 function markdownToNotionBlocks(markdown: string) {
@@ -87,6 +231,11 @@ function markdownToNotionBlocks(markdown: string) {
 // POST /api/export-notion - Export untangled notes to Notion via API or Webhook
 app.post("/api/export-notion", async (req, res) => {
   try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
     const { mode, webhookUrl, notionToken, pageId, markdown, title, routeDetected } = req.body;
 
     if (!markdown) {
@@ -117,6 +266,8 @@ app.post("/api/export-notion", async (req, res) => {
         const errorText = await webhookResponse.text();
         throw new Error(`Webhook endpoint returned status ${webhookResponse.status}: ${errorText || "Failed to trigger webhook"}`);
       }
+
+      await recordUsageLog(auth, "/api/export-notion");
 
       return res.json({
         success: true,
@@ -185,6 +336,8 @@ app.post("/api/export-notion", async (req, res) => {
           );
         }
       }
+
+      await recordUsageLog(auth, "/api/export-notion");
 
       const notionData = await notionRes.json();
       return res.json({
@@ -270,6 +423,11 @@ async function generateContentWithRetry(
 // Untangle Endpoint
 app.post("/api/untangle", async (req, res) => {
   try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
     const { prompt, route = "auto", budget, files = [], audio } = req.body;
 
     if (!prompt && (!files || files.length === 0) && !audio) {
@@ -373,6 +531,9 @@ Act as the "Dorm Chef Budget Planner." Maximize ingredients used, stay strictly 
     // Detect which route was generated based on header
     const routeDetected = resultText.includes("DORM CHEF:") ? "chef" : "notes";
 
+    // Record usage
+    await recordUsageLog(auth, "/api/untangle");
+
     res.json({ result: resultText, routeDetected });
   } catch (error: any) {
     console.error("Error in /api/untangle:", error);
@@ -383,6 +544,11 @@ Act as the "Dorm Chef Budget Planner." Maximize ingredients used, stay strictly 
 // Flashcard Generation Tool
 app.post("/api/flashcards", async (req, res) => {
   try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
     const { markdownNote } = req.body;
     if (!markdownNote) {
       return res.status(400).json({ error: "No note content provided." });
@@ -403,6 +569,10 @@ ${markdownNote}`;
     });
 
     const flashcards = JSON.parse(response.text || "[]");
+
+    // Record usage
+    await recordUsageLog(auth, "/api/flashcards");
+
     res.json({ flashcards });
   } catch (error: any) {
     console.error("Error in /api/flashcards:", error);
@@ -413,6 +583,11 @@ ${markdownNote}`;
 // Text-to-Speech Endpoint
 app.post("/api/tts", async (req, res) => {
   try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
     const { text } = req.body;
     if (!text) {
       return res.status(400).json({ error: "No text provided for TTS." });
@@ -452,6 +627,9 @@ app.post("/api/tts", async (req, res) => {
     if (!base64Audio) {
       throw new Error("No audio data generated.");
     }
+
+    // Record usage
+    await recordUsageLog(auth, "/api/tts");
 
     res.json({ audio: base64Audio });
   } catch (error: any) {

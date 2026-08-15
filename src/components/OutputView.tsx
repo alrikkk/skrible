@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import { NotionExportModal } from "./NotionExportModal";
+import { getAuthHeaders } from "../lib/supabaseClient";
 import {
   Copy,
   Check,
@@ -192,12 +193,20 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
     try {
       setIsLoadingAudio(true);
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({ text: markdown }),
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate audio readout.");
+      }
 
       if (data.audio) {
         const audioSrc = `data:audio/wav;base64,${data.audio}`;
@@ -208,8 +217,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
         audio.play();
         setIsPlayingAudio(true);
       }
-    } catch (err) {
-      alert("Failed to generate audio readout.");
+    } catch (err: any) {
+      alert(err.message || "Failed to generate audio readout.");
     } finally {
       setIsLoadingAudio(false);
     }

@@ -11,9 +11,10 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample } from "./types";
 import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
+import { supabase, getAuthHeaders } from "./lib/supabaseClient";
 
 export default function App() {
-  const { currentUser, signOut: authSignOut } = useAuth();
+  const { currentUser, session, signOut: authSignOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<"home" | "login" | "workspace">("home");
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
 
@@ -82,21 +83,61 @@ export default function App() {
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState<boolean>(false);
   const [isLoadingFlashcards, setIsLoadingFlashcards] = useState<boolean>(false);
 
-  // Load history from localStorage on mount
+  // Load history from Supabase for logged-in users, or localStorage for guest users
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("skrible_history");
-      if (saved) {
-        setHistory(JSON.parse(saved));
+    let isCancelled = false;
+
+    const loadHistory = async () => {
+      // If user is authenticated via Supabase
+      if (session?.user && currentUser?.provider !== "guest") {
+        try {
+          const { data, error } = await supabase
+            .from("notes_history")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .order("created_at", { ascending: false });
+
+          if (!error && data && !isCancelled) {
+            const mapped: UntangleHistoryItem[] = data.map((item: any) => ({
+              id: item.id,
+              timestamp: new Date(item.created_at).getTime(),
+              title: item.prompt_summary || (item.route_detected === "chef" ? "Dorm Chef Recipe" : "Untangled Note"),
+              inputPrompt: item.prompt_summary || "",
+              inputType: "text",
+              routeDetected: (item.route_detected as "notes" | "chef") || "notes",
+              outputMarkdown: item.output_markdown,
+              tags: [item.route_detected === "chef" ? "Recipe" : "Study Note"],
+            }));
+            setHistory(mapped);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to load notes_history from Supabase:", err);
+        }
       }
-    } catch (e) {
-      console.error("Failed to load history from localStorage", e);
-    }
-  }, []);
 
+      // Guest fallback to localStorage
+      try {
+        const saved = localStorage.getItem("skrible_history");
+        if (saved && !isCancelled) {
+          setHistory(JSON.parse(saved));
+        } else if (!isCancelled) {
+          setHistory([]);
+        }
+      } catch (e) {
+        console.error("Failed to load history from localStorage", e);
+      }
+    };
 
-  // Save history to localStorage
-  const saveHistoryToStorage = (updatedHistory: UntangleHistoryItem[]) => {
+    loadHistory();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session?.user?.id, currentUser?.provider]);
+
+  // Save history to localStorage (for guest fallback)
+  const saveGuestHistoryToStorage = (updatedHistory: UntangleHistoryItem[]) => {
     setHistory(updatedHistory);
     try {
       localStorage.setItem("skrible_history", JSON.stringify(updatedHistory));
@@ -134,9 +175,14 @@ export default function App() {
           : null,
       };
 
+      const authHeaders = await getAuthHeaders();
+
       const response = await fetch("/api/untangle", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify(payload),
       });
 
@@ -161,15 +207,56 @@ export default function App() {
   };
 
   // Save to history vault
-  const handleSaveToHistory = (markdown: string, routeDet: "notes" | "chef", tags?: string[]) => {
+  const handleSaveToHistory = async (markdown: string, routeDet: "notes" | "chef", tags?: string[]) => {
     if (!markdown) return;
 
     // Extract title from markdown
     const firstLine = markdown.split("\n")[0] || "";
     const cleanTitle = firstLine.replace(/^[#\s]+/, "").trim() || (routeDet === "chef" ? "Dorm Chef Recipe" : "Untangled Note");
-
     const itemTags = tags && tags.length > 0 ? tags : [routeDet === "chef" ? "Recipe" : "Study Note"];
 
+    // 1. If logged in with Supabase, persist to notes_history table
+    if (session?.user && currentUser?.provider !== "guest") {
+      try {
+        const { data, error } = await supabase
+          .from("notes_history")
+          .insert({
+            user_id: session.user.id,
+            route_detected: routeDet,
+            prompt_summary: cleanTitle,
+            output_markdown: markdown,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          const newItem: UntangleHistoryItem = {
+            id: data.id,
+            timestamp: new Date(data.created_at).getTime(),
+            title: data.prompt_summary || cleanTitle,
+            inputPrompt: promptText || cleanTitle,
+            inputType: files.length > 0 ? "image" : audioAttachment ? "audio" : "text",
+            routeDetected: routeDet,
+            outputMarkdown: markdown,
+            budget,
+            tags: itemTags,
+          };
+          setHistory((prev) => [newItem, ...prev.filter((h) => h.id !== data.id)]);
+          setIsSaved(true);
+
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+            navigator.vibrate([40]);
+          }
+          return;
+        } else if (error) {
+          console.error("Supabase insert notes_history error:", error);
+        }
+      } catch (err) {
+        console.error("Failed to save note to Supabase notes_history:", err);
+      }
+    }
+
+    // 2. Guest fallback to localStorage
     const newItem: UntangleHistoryItem = {
       id: Date.now().toString(),
       timestamp: Date.now(),
@@ -183,7 +270,7 @@ export default function App() {
     };
 
     const updated = [newItem, ...history];
-    saveHistoryToStorage(updated);
+    saveGuestHistoryToStorage(updated);
     setIsSaved(true);
 
     // Haptic feedback on save to vault
@@ -192,23 +279,83 @@ export default function App() {
     }
   };
 
+  // Delete history item
+  const handleDeleteHistory = async (id: string) => {
+    if (session?.user && currentUser?.provider !== "guest") {
+      try {
+        await supabase.from("notes_history").delete().eq("id", id);
+      } catch (err) {
+        console.error("Failed to delete note from Supabase:", err);
+      }
+    } else {
+      const updated = history.filter((h) => h.id !== id);
+      try {
+        localStorage.setItem("skrible_history", JSON.stringify(updated));
+      } catch {}
+    }
+    setHistory((prev) => prev.filter((h) => h.id !== id));
+  };
+
+  // Bulk delete history items
+  const handleBulkDelete = async (ids: string[]) => {
+    if (session?.user && currentUser?.provider !== "guest") {
+      try {
+        await supabase.from("notes_history").delete().in("id", ids);
+      } catch (err) {
+        console.error("Failed to bulk delete notes from Supabase:", err);
+      }
+    } else {
+      const updated = history.filter((h) => !ids.includes(h.id));
+      try {
+        localStorage.setItem("skrible_history", JSON.stringify(updated));
+      } catch {}
+    }
+    setHistory((prev) => prev.filter((h) => !ids.includes(h.id)));
+  };
+
+  // Clear all history
+  const handleClearAllHistory = async () => {
+    if (confirm("Clear all saved untangled notes and recipes?")) {
+      if (session?.user && currentUser?.provider !== "guest") {
+        try {
+          await supabase.from("notes_history").delete().eq("user_id", session.user.id);
+        } catch (err) {
+          console.error("Failed to clear notes history from Supabase:", err);
+        }
+      } else {
+        try {
+          localStorage.removeItem("skrible_history");
+        } catch {}
+      }
+      setHistory([]);
+    }
+  };
+
   // Generate Flashcards
   const handleGenerateFlashcards = async (markdownNote: string) => {
     try {
       setIsLoadingFlashcards(true);
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/flashcards", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({ markdownNote }),
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate flashcards.");
+      }
 
       if (data.flashcards) {
         setFlashcards(data.flashcards);
         setIsFlashcardsOpen(true);
       }
-    } catch (e) {
-      alert("Failed to generate flashcards.");
+    } catch (e: any) {
+      alert(e.message || "Failed to generate flashcards.");
     } finally {
       setIsLoadingFlashcards(false);
     }
@@ -386,19 +533,9 @@ export default function App() {
           setIsSaved(true);
           setCurrentPage("workspace");
         }}
-        onDeleteHistory={(id) => {
-          const updated = history.filter((h) => h.id !== id);
-          saveHistoryToStorage(updated);
-        }}
-        onBulkDelete={(ids) => {
-          const updated = history.filter((h) => !ids.includes(h.id));
-          saveHistoryToStorage(updated);
-        }}
-        onClearAll={() => {
-          if (confirm("Clear all saved untangled notes and recipes?")) {
-            saveHistoryToStorage([]);
-          }
-        }}
+        onDeleteHistory={handleDeleteHistory}
+        onBulkDelete={handleBulkDelete}
+        onClearAll={handleClearAllHistory}
       />
 
       {/* Flashcard Modal */}
