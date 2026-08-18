@@ -98,6 +98,11 @@ export default function App() {
             .order("created_at", { ascending: false });
 
           if (!error && data && !isCancelled) {
+            let tagsMap: Record<string, string[]> = {};
+            try {
+              tagsMap = JSON.parse(localStorage.getItem(`skrible_tags_${session.user.id}`) || "{}");
+            } catch {}
+
             const mapped: UntangleHistoryItem[] = data.map((item: any) => ({
               id: item.id,
               timestamp: new Date(item.created_at).getTime(),
@@ -106,7 +111,7 @@ export default function App() {
               inputType: "text",
               routeDetected: (item.route_detected as "notes" | "chef") || "notes",
               outputMarkdown: item.output_markdown,
-              tags: [item.route_detected === "chef" ? "Recipe" : "Study Note"],
+              tags: tagsMap[item.id] || [item.route_detected === "chef" ? "Recipe" : "Study Note"],
             }));
             setHistory(mapped);
             return;
@@ -311,6 +316,64 @@ export default function App() {
       } catch {}
     }
     setHistory((prev) => prev.filter((h) => !ids.includes(h.id)));
+  };
+
+  // Update tags on a note
+  const handleUpdateTags = (id: string, newTags: string[]) => {
+    setHistory((prev) => {
+      const updated = prev.map((item) => (item.id === id ? { ...item, tags: newTags } : item));
+      if (session?.user && currentUser?.provider !== "guest") {
+        try {
+          const map = JSON.parse(localStorage.getItem(`skrible_tags_${session.user.id}`) || "{}");
+          map[id] = newTags;
+          localStorage.setItem(`skrible_tags_${session.user.id}`, JSON.stringify(map));
+        } catch {}
+      } else {
+        try {
+          localStorage.setItem("skrible_history", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+  };
+
+  // Bulk add tag to selected notes
+  const handleBulkAddTag = (ids: string[], tagToAdd: string) => {
+    const cleanTag = tagToAdd.trim();
+    if (!cleanTag) return;
+    setHistory((prev) => {
+      let map: Record<string, string[]> = {};
+      if (session?.user && currentUser?.provider !== "guest") {
+        try {
+          map = JSON.parse(localStorage.getItem(`skrible_tags_${session.user.id}`) || "{}");
+        } catch {}
+      }
+
+      const updated = prev.map((item) => {
+        if (ids.includes(item.id)) {
+          const existing = item.tags || [];
+          if (!existing.some((t) => t.toLowerCase() === cleanTag.toLowerCase())) {
+            const nextTags = [...existing, cleanTag];
+            if (session?.user && currentUser?.provider !== "guest") {
+              map[item.id] = nextTags;
+            }
+            return { ...item, tags: nextTags };
+          }
+        }
+        return item;
+      });
+
+      if (session?.user && currentUser?.provider !== "guest") {
+        try {
+          localStorage.setItem(`skrible_tags_${session.user.id}`, JSON.stringify(map));
+        } catch {}
+      } else {
+        try {
+          localStorage.setItem("skrible_history", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
   };
 
   // Clear all history
@@ -536,6 +599,8 @@ export default function App() {
         onDeleteHistory={handleDeleteHistory}
         onBulkDelete={handleBulkDelete}
         onClearAll={handleClearAllHistory}
+        onUpdateTags={handleUpdateTags}
+        onBulkAddTag={handleBulkAddTag}
       />
 
       {/* Flashcard Modal */}
