@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
+import { motion } from "motion/react";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import { NotionExportModal } from "./NotionExportModal";
 import { getAuthHeaders } from "../lib/supabaseClient";
@@ -250,7 +251,14 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const ingredientsList = routeDetected === "chef" ? extractIngredients(markdown) : [];
 
   return (
-    <div ref={containerRef} className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-6">
+    <motion.div
+      ref={containerRef}
+      key={markdown.slice(0, 60) + "_" + routeDetected}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-6"
+    >
       
       {/* HEADER TOOLBAR */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6">
@@ -485,6 +493,6 @@ export const OutputView: React.FC<OutputViewProps> = ({
         </button>
       </div>
 
-    </div>
+    </motion.div>
   );
 };
