@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import { motion, Variants } from "motion/react";
 import { ShoppingChecklist } from "./ShoppingChecklist";
+import { RecipeCostD3Chart } from "./RecipeCostD3Chart";
 import { NotionExportModal } from "./NotionExportModal";
 import { getAuthHeaders } from "../lib/supabaseClient";
 import {
@@ -31,6 +32,7 @@ import {
 interface OutputViewProps {
   markdown: string;
   routeDetected: "notes" | "chef";
+  budget?: string;
   onGenerateFlashcards: (markdown: string) => void;
   onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[]) => void;
   isSaved: boolean;
@@ -131,6 +133,7 @@ const itemRevealVariants: Variants = {
 export const OutputView: React.FC<OutputViewProps> = ({
   markdown,
   routeDetected,
+  budget,
   onGenerateFlashcards,
   onSaveToHistory,
   isSaved,
@@ -713,6 +716,25 @@ export const OutputView: React.FC<OutputViewProps> = ({
           {markdown}
         </Markdown>
       </motion.div>
+
+      {/* DORM CHEF D3 RECIPE COST CATEGORY BREAKDOWN CHART */}
+      {(routeDetected === "chef" || ingredientsList.length > 0) &&
+        (Boolean(budget && budget.trim().length > 0) || Boolean(chefStats?.remainingBudget)) && (
+          <RecipeCostD3Chart
+            ingredients={ingredientsList}
+            totalCost={chefStats?.totalCost}
+            budget={
+              budget ||
+              (chefStats?.remainingBudget && chefStats?.totalCost
+                ? (
+                    parseFloat(chefStats.totalCost.replace(/[^0-9.]/g, "") || "0") +
+                    parseFloat(chefStats.remainingBudget.replace(/[^0-9.]/g, "") || "0")
+                  ).toFixed(2)
+                : null)
+            }
+            remainingBudget={chefStats?.remainingBudget}
+          />
+        )}
 
       {/* DORM CHEF SHOPPING CHECKLIST */}
       {(routeDetected === "chef" || ingredientsList.length > 0) && ingredientsList.length > 0 && (

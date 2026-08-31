@@ -566,6 +566,7 @@ export default function App() {
               <OutputView
                 markdown={outputMarkdown}
                 routeDetected={routeDetected}
+                budget={budget}
                 onGenerateFlashcards={handleGenerateFlashcards}
                 onSaveToHistory={handleSaveToHistory}
                 isSaved={isSaved}
