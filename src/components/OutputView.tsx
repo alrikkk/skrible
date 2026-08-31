@@ -248,26 +248,74 @@ export const OutputView: React.FC<OutputViewProps> = ({
     }
   };
 
-  // Extract ingredients list if route is chef
+  // Extract ingredients list if route is chef or contains ingredients
   const extractIngredients = (text: string): string[] => {
-    if (!text.includes("INGREDIENTS USED")) return [];
+    if (!text) return [];
     const lines = text.split("\n");
     const ingredients: string[] = [];
     let inIngredients = false;
 
-    for (const line of lines) {
-      if (line.includes("INGREDIENTS USED")) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const upper = line.toUpperCase();
+
+      // Detect header indicating ingredients
+      if (
+        upper.includes("INGREDIENT") ||
+        upper.includes("SHOPPING LIST") ||
+        upper.includes("GROCERY LIST") ||
+        upper.includes("PANTRY") ||
+        upper.includes("WHAT YOU NEED") ||
+        upper.includes("ITEMS USED")
+      ) {
         inIngredients = true;
         continue;
       }
-      if (inIngredients && line.startsWith("## ")) {
+
+      // If in ingredients section and encounter next major heading
+      if (inIngredients && (line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### "))) {
         break;
       }
-      if (inIngredients && (line.trim().startsWith("- ") || line.trim().startsWith("* "))) {
-        const item = line.replace(/^[-*]\s*/, "").replace(/\*\*/g, "").trim();
-        if (item) ingredients.push(item);
+
+      if (inIngredients && (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || /^\d+\.\s+/.test(line))) {
+        const item = line.replace(/^[-*+\d.]+\s*/, "").replace(/\*\*/g, "").trim();
+        const lower = item.toLowerCase();
+        if (
+          item &&
+          !lower.startsWith("prep time") &&
+          !lower.startsWith("cook time") &&
+          !lower.startsWith("total time") &&
+          !lower.startsWith("estimated cost")
+        ) {
+          ingredients.push(item);
+        }
       }
     }
+
+    // Fallback: If no explicit ingredients heading was found but route is chef, find bulleted items
+    if (ingredients.length === 0 && (routeDetected === "chef" || text.includes("DORM CHEF") || text.includes("🍳"))) {
+      let inList = false;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+          const clean = trimmed.replace(/^[-*]\s*/, "").replace(/\*\*/g, "").trim();
+          const lower = clean.toLowerCase();
+          if (
+            clean &&
+            !lower.includes("estimated cost") &&
+            !lower.includes("remaining budget") &&
+            !lower.includes("prep time") &&
+            !lower.includes("cook time")
+          ) {
+            ingredients.push(clean);
+            inList = true;
+          }
+        } else if (inList && trimmed.startsWith("## ")) {
+          break;
+        }
+      }
+    }
+
     return ingredients;
   };
 
@@ -545,7 +593,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       </motion.div>
 
       {/* DORM CHEF SHOPPING CHECKLIST */}
-      {routeDetected === "chef" && ingredientsList.length > 0 && (
+      {(routeDetected === "chef" || ingredientsList.length > 0) && ingredientsList.length > 0 && (
         <ShoppingChecklist ingredients={ingredientsList} />
       )}
 
