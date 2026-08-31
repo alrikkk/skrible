@@ -1,3 +1,4 @@
+IN DEVELOPMENT
 # Skrible
 
 Skrible is a student note and meal untangler. It turns messy lecture audio, scribbled notes, whiteboard photos, and dorm fridge contents into clean study summaries, flashcards, and budget-friendly recipes.
