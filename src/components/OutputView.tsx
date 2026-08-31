@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
-import { motion } from "motion/react";
+import { motion, Variants } from "motion/react";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import { NotionExportModal } from "./NotionExportModal";
 import { getAuthHeaders } from "../lib/supabaseClient";
@@ -43,6 +43,29 @@ const PRESET_TAGS = [
   "Cheat Sheet",
   "High Priority",
 ];
+
+const markdownContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const itemRevealVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.32,
+      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+    },
+  },
+};
 
 export const OutputView: React.FC<OutputViewProps> = ({
   markdown,
@@ -436,36 +459,79 @@ export const OutputView: React.FC<OutputViewProps> = ({
         </div>
       </div>
 
-      {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING */}
-      <div className="prose max-w-none text-black">
+      {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING & STAGGERED REVEAL ANIMATIONS */}
+      <motion.div
+        variants={markdownContainerVariants}
+        initial="hidden"
+        animate="visible"
+        className="prose max-w-none text-black"
+      >
         <Markdown
           components={{
             h1: ({ children }) => (
-              <h1 className="text-2xl sm:text-3xl font-bold text-black border-b border-black/15 pb-2.5 my-4">
+              <motion.h1
+                variants={itemRevealVariants}
+                className="text-2xl sm:text-3xl font-bold text-black border-b border-black/15 pb-2.5 my-4"
+              >
                 {children}
-              </h1>
+              </motion.h1>
             ),
             h2: ({ children }) => (
-              <h2 className="text-lg font-bold text-black border-l-3 border-[#ec4899] pl-3 py-0.5 mt-6 mb-3">
+              <motion.h2
+                variants={itemRevealVariants}
+                className="text-lg font-bold text-black border-l-3 border-[#ec4899] pl-3 py-0.5 mt-6 mb-3"
+              >
                 {children}
-              </h2>
+              </motion.h2>
+            ),
+            h3: ({ children }) => (
+              <motion.h3
+                variants={itemRevealVariants}
+                className="text-base font-bold text-black mt-4 mb-2"
+              >
+                {children}
+              </motion.h3>
             ),
             ul: ({ children }) => (
-              <ul className="space-y-2.5 my-4 pl-0 list-none">{children}</ul>
+              <motion.ul
+                variants={markdownContainerVariants}
+                className="space-y-2.5 my-4 pl-0 list-none"
+              >
+                {children}
+              </motion.ul>
             ),
             li: ({ children }) => (
-              <li className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 p-3.5 rounded-xl font-medium text-sm text-black/90">
+              <motion.li
+                variants={itemRevealVariants}
+                className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 p-3.5 rounded-xl font-medium text-sm text-black/90"
+              >
                 <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
                 <div className="flex-1">{children}</div>
-              </li>
+              </motion.li>
             ),
             ol: ({ children }) => (
-              <ol className="space-y-2.5 my-4 pl-0 list-none">{children}</ol>
+              <motion.ol
+                variants={markdownContainerVariants}
+                className="space-y-2.5 my-4 pl-0 list-none"
+              >
+                {children}
+              </motion.ol>
             ),
             p: ({ children }) => (
-              <p className="text-sm sm:text-base font-normal leading-relaxed my-3 text-black/80">
+              <motion.p
+                variants={itemRevealVariants}
+                className="text-sm sm:text-base font-normal leading-relaxed my-3 text-black/80"
+              >
                 {children}
-              </p>
+              </motion.p>
+            ),
+            blockquote: ({ children }) => (
+              <motion.blockquote
+                variants={itemRevealVariants}
+                className="border-l-4 border-black/20 pl-4 py-1 my-3 text-black/70 italic text-sm"
+              >
+                {children}
+              </motion.blockquote>
             ),
             strong: ({ children }) => (
               <strong className="font-semibold text-black bg-[#ec4899]/15 px-1.5 py-0.5 rounded text-xs">
@@ -476,7 +542,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
         >
           {markdown}
         </Markdown>
-      </div>
+      </motion.div>
 
       {/* DORM CHEF SHOPPING CHECKLIST */}
       {routeDetected === "chef" && ingredientsList.length > 0 && (
