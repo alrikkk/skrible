@@ -21,7 +21,11 @@ import {
   Tag,
   Plus,
   ExternalLink,
-  Send
+  Send,
+  DollarSign,
+  Receipt,
+  Utensils,
+  Clock,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -32,6 +36,63 @@ interface OutputViewProps {
   isSaved: boolean;
   onNewUntangle: () => void;
 }
+
+interface ChefStats {
+  totalCost: string | null;
+  costPerServing: string | null;
+  remainingBudget: string | null;
+  servings: string | null;
+  prepTime: string | null;
+}
+
+const extractChefStats = (text: string): ChefStats | null => {
+  if (!text) return null;
+  const isChef =
+    text.includes("DORM CHEF") ||
+    text.includes("🍳") ||
+    text.includes("COST BREAKDOWN") ||
+    text.includes("COST & SERVING") ||
+    text.includes("Cost Per Serving");
+  if (!isChef) return null;
+
+  const totalCostMatch = text.match(
+    /(?:Total Recipe Cost|Total Estimated Cost|Estimated Cost|Total Cost):\s*(\$?[0-9.]+)/i
+  );
+  const costPerServingMatch = text.match(
+    /Cost Per Serving:\s*(\$?[0-9.]+(?:\s*\/\s*serving)?(?:\s*\([^)]+\))?)/i
+  );
+  const budgetMatch = text.match(/Remaining Budget:\s*(\$?[0-9.]+)/i);
+  const servingsMatch = text.match(/(?:Servings|Yield):\s*([0-9]+(?:\s*servings?)?)/i);
+  const prepTimeMatch = text.match(/(?:Prep Time):\s*([0-9]+\s*(?:minutes|mins|min)?)/i);
+
+  const totalCost = totalCostMatch
+    ? totalCostMatch[1].startsWith("$")
+      ? totalCostMatch[1]
+      : `$${totalCostMatch[1]}`
+    : null;
+  const costPerServing = costPerServingMatch
+    ? costPerServingMatch[1].startsWith("$")
+      ? costPerServingMatch[1]
+      : `$${costPerServingMatch[1]}`
+    : null;
+  const remainingBudget = budgetMatch
+    ? budgetMatch[1].startsWith("$")
+      ? budgetMatch[1]
+      : `$${budgetMatch[1]}`
+    : null;
+  const servings = servingsMatch ? servingsMatch[1] : null;
+  const prepTime = prepTimeMatch ? prepTimeMatch[1] : null;
+
+  if (!totalCost && !costPerServing && !remainingBudget) return null;
+
+  return {
+    totalCost,
+    costPerServing,
+    remainingBudget,
+    servings,
+    prepTime,
+  };
+};
 
 const PRESET_TAGS = [
   "Important",
@@ -320,6 +381,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   };
 
   const ingredientsList = routeDetected === "chef" ? extractIngredients(markdown) : [];
+  const chefStats = routeDetected === "chef" ? extractChefStats(markdown) : null;
 
   return (
     <motion.div
@@ -506,6 +568,66 @@ export const OutputView: React.FC<OutputViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* CHEF RECEIPT & COST PER SERVING HIGHLIGHT BANNER */}
+      {chefStats && (
+        <div className="mb-6 bg-[#FAF8F5] border border-black/15 rounded-2xl p-4 sm:p-5 shadow-xs font-sans">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-3.5 mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center">
+                <Receipt className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-black tracking-tight flex items-center gap-1.5">
+                  <span>receipt breakdown & serving economics</span>
+                  <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/5 text-black/60 border border-black/10">
+                    auto-calculated
+                  </span>
+                </h4>
+                <p className="text-xs text-black/60 font-medium">
+                  Parsed ingredient pricing per portion & cost per serving.
+                </p>
+              </div>
+            </div>
+
+            {chefStats.costPerServing && (
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <span className="bg-[#ec4899] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5">
+                  <Utensils className="w-3.5 h-3.5" />
+                  <span>{chefStats.costPerServing}</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {chefStats.costPerServing && (
+              <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
+                <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Cost / Serving</span>
+                <span className="text-sm sm:text-base font-bold text-[#ec4899]">{chefStats.costPerServing}</span>
+              </div>
+            )}
+            {chefStats.totalCost && (
+              <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
+                <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Total Recipe Cost</span>
+                <span className="text-sm sm:text-base font-bold text-black">{chefStats.totalCost}</span>
+              </div>
+            )}
+            {chefStats.remainingBudget && (
+              <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
+                <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Remaining Budget</span>
+                <span className="text-sm sm:text-base font-bold text-emerald-700">{chefStats.remainingBudget}</span>
+              </div>
+            )}
+            {chefStats.servings && (
+              <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
+                <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Portion Yield</span>
+                <span className="text-sm sm:text-base font-bold text-black">{chefStats.servings}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING & STAGGERED REVEAL ANIMATIONS */}
       <motion.div

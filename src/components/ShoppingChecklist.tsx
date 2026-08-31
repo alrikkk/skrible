@@ -1,19 +1,66 @@
 import React, { useState, useEffect } from "react";
 import {
-  CheckSquare,
-  Square,
   ShoppingCart,
   Check,
   Copy,
   Plus,
-  RotateCcw,
-  ListFilter,
   CheckCheck,
-  Sparkles,
+  DollarSign,
+  Receipt,
+  Tag,
 } from "lucide-react";
 
 interface ShoppingChecklistProps {
   ingredients: string[];
+}
+
+interface ParsedIngredient {
+  raw: string;
+  name: string;
+  priceFormatted?: string;
+  priceNumeric?: number;
+  note?: string;
+}
+
+function parseIngredientItem(raw: string): ParsedIngredient {
+  let text = raw.trim();
+  let note: string | undefined = undefined;
+  let priceFormatted: string | undefined = undefined;
+  let priceNumeric: number | undefined = undefined;
+
+  // Check for notes in brackets or receipt remarks
+  const bracketMatch = text.match(/\[(.*?)\]/) || text.match(/\((Receipt:.*?)\)/i) || text.match(/\((portion cost:.*?)\)/i);
+  if (bracketMatch) {
+    note = bracketMatch[1];
+    text = text.replace(bracketMatch[0], "").trim();
+  }
+
+  // Check for price formatted like — $0.50, - $0.50, : $0.50, ($0.50), or $0.50
+  const priceMatch = text.match(/(?:—|-|:|\(|\s|^)\s*\$(\d+(?:\.\d{1,2})?)/);
+  if (priceMatch) {
+    const num = parseFloat(priceMatch[1]);
+    if (!isNaN(num)) {
+      priceNumeric = num;
+      priceFormatted = `$${num.toFixed(2)}`;
+      // Clean up name
+      text = text
+        .replace(new RegExp(`(?:—|-|:)\\s*\\$${priceMatch[1]}`, "i"), "")
+        .replace(new RegExp(`\\(\\s*\\$${priceMatch[1]}\\s*\\)`, "i"), "")
+        .replace(new RegExp(`\\$${priceMatch[1]}`, "i"), "")
+        .trim();
+    }
+  }
+
+  // Strip leading list bullet and trailing dashes, colons, or punctuation
+  text = text.replace(/^[-*+\d.]+\s*/, "").replace(/[-—:,\s]+$/, "").trim();
+
+  return {
+    raw,
+    name: text || raw,
+    priceFormatted,
+    priceNumeric,
+    note,
+  };
 }
 
 export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredients: initialIngredients }) => {
@@ -61,9 +108,11 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
 
   const handleCopyMissing = () => {
     const missing = items.filter((_, idx) => !checked[idx]);
-    const textToCopy = missing.length > 0
-      ? `🛒 Shopping List (${missing.length} items needed):\n` + missing.map((item) => `- [ ] ${item}`).join("\n")
-      : "All ingredients are ready in the pantry!";
+    const textToCopy =
+      missing.length > 0
+        ? `🛒 Dorm Chef Shopping List (${missing.length} items needed):\n` +
+          missing.map((item) => `- [ ] ${item}`).join("\n")
+        : "All ingredients are ready in the pantry!";
 
     navigator.clipboard.writeText(textToCopy);
     setCopiedMissing(true);
@@ -72,13 +121,32 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
 
   if (!items || items.length === 0) return null;
 
+  const parsedItems: ParsedIngredient[] = items.map((item) => parseIngredientItem(item));
   const totalCount = items.length;
   const readyCount = Object.entries(checked).filter(([k, v]) => v && Number(k) < items.length).length;
   const missingCount = totalCount - readyCount;
   const progressPercent = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
 
-  const visibleItems = items
-    .map((item, idx) => ({ item, idx, isDone: Boolean(checked[idx]) }))
+  // Calculate costs if parsed prices exist
+  const pricedItems = parsedItems.filter((p) => p.priceNumeric !== undefined);
+  const hasPrices = pricedItems.length > 0;
+
+  const neededCost = parsedItems.reduce((sum, p, idx) => {
+    if (!checked[idx] && p.priceNumeric !== undefined) {
+      return sum + p.priceNumeric;
+    }
+    return sum;
+  }, 0);
+
+  const inPantryCost = parsedItems.reduce((sum, p, idx) => {
+    if (checked[idx] && p.priceNumeric !== undefined) {
+      return sum + p.priceNumeric;
+    }
+    return sum;
+  }, 0);
+
+  const visibleItems = parsedItems
+    .map((parsed, idx) => ({ parsed, idx, isDone: Boolean(checked[idx]) }))
     .filter(({ isDone }) => {
       if (filter === "ready") return isDone;
       if (filter === "missing") return !isDone;
@@ -95,19 +163,25 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
           </div>
           <div>
             <h4 className="font-bold text-sm text-black tracking-tight flex items-center gap-1.5">
-              <span>dorm ingredients checklist</span>
+              <span>dorm ingredients & receipt checklist</span>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-black/5 text-black/60 border border-black/10">
                 interactive
               </span>
             </h4>
             <p className="text-xs text-black/60 font-medium">
-              Check off what you have in your dorm; copy the rest to buy.
+              Check off what you already have; see estimated grocery spend for the rest.
             </p>
           </div>
         </div>
 
-        {/* Status Pill */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        {/* Status Pills */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {hasPrices && (
+            <span className="text-xs font-semibold bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <DollarSign className="w-3 h-3" />
+              <span>Need: ${neededCost.toFixed(2)}</span>
+            </span>
+          )}
           <span className="text-xs font-semibold bg-white border border-black/15 px-3 py-1 rounded-full shadow-2xs">
             {readyCount} / {totalCount} ready ({progressPercent}%)
           </span>
@@ -121,6 +195,21 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
           style={{ width: `${progressPercent}%` }}
         />
       </div>
+
+      {/* Price Summary Banner if prices parsed */}
+      {hasPrices && (
+        <div className="mb-4 bg-white border border-black/10 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-black/70 font-medium">
+            <Receipt className="w-3.5 h-3.5 text-[#ec4899]" />
+            <span>Parsed Receipt & Portion Pricing:</span>
+          </div>
+          <div className="flex items-center gap-3 font-semibold">
+            <span className="text-[#ec4899]">To Buy: ${neededCost.toFixed(2)}</span>
+            <span className="text-black/30">•</span>
+            <span className="text-emerald-700">In Pantry: ${inPantryCost.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
 
       {/* Action Toolbar & Filters */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -198,7 +287,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
             </p>
           </div>
         ) : (
-          visibleItems.map(({ item, idx, isDone }) => {
+          visibleItems.map(({ parsed, idx, isDone }) => {
             return (
               <div
                 key={idx}
@@ -210,7 +299,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
+                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${
                     isDone
                       ? "bg-[#ec4899] border-[#ec4899] text-white"
                       : "border-black/30 bg-white group-hover:border-[#ec4899]"
@@ -218,15 +307,41 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
                 >
                   {isDone ? <Check className="w-3.5 h-3.5 text-white stroke-[3]" /> : null}
                 </div>
+
+                {/* Name & Note */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`font-medium text-xs transition-all ${
+                        isDone ? "line-through text-black/50" : "text-black font-semibold"
+                      }`}
+                    >
+                      {parsed.name}
+                    </span>
+                    {parsed.note && (
+                      <span className="text-[10px] text-black/50 italic bg-black/5 px-1.5 py-0.5 rounded">
+                        {parsed.note}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Price Badge if parsed */}
+                {parsed.priceFormatted && (
+                  <span
+                    className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border shrink-0 ${
+                      isDone
+                        ? "bg-black/5 text-black/40 border-black/10 line-through"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}
+                  >
+                    {parsed.priceFormatted}
+                  </span>
+                )}
+
+                {/* Pantry / Need Pill */}
                 <span
-                  className={`font-medium text-xs flex-1 transition-all ${
-                    isDone ? "line-through text-black/50" : "text-black font-semibold"
-                  }`}
-                >
-                  {item}
-                </span>
-                <span
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all shrink-0 ${
                     isDone
                       ? "bg-black/5 text-black/40 border-black/10"
                       : "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
@@ -246,7 +361,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
           type="text"
           value={newItemText}
           onChange={(e) => setNewItemText(e.target.value)}
-          placeholder="Add extra ingredient or staple (e.g. olive oil, salt)..."
+          placeholder="Add extra ingredient or staple with price (e.g. Olive Oil — $0.35)..."
           className="flex-1 bg-white border border-black/15 rounded-xl px-3 py-1.5 text-xs font-medium text-black outline-none focus:border-[#ec4899]"
         />
         <button
@@ -261,4 +376,5 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
     </div>
   );
 };
+
 
