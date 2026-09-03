@@ -266,6 +266,14 @@ export const RecipeCostD3Chart: React.FC<RecipeCostD3ChartProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<"donut" | "bars">("donut");
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  const [justUpdated, setJustUpdated] = useState(false);
+
+  // References to preserve state across data updates for smooth tweening
+  const prevCostRef = useRef<number>(0);
+  const prevBudgetUtilizationRef = useRef<number>(0);
+  const prevViewRef = useRef<"donut" | "bars">("donut");
+  const isInitializedRef = useRef<boolean>(false);
+  const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const budgetNum = parseNumericValue(budget);
   const totalCostNum = parseNumericValue(totalCost);
@@ -285,27 +293,103 @@ export const RecipeCostD3Chart: React.FC<RecipeCostD3ChartProps> = ({
     [ingredients, totalCostNum]
   );
 
-  // Render D3 chart
+  // Flash update pill briefly when ingredients or totalCost change after initial render
+  useEffect(() => {
+    if (isInitializedRef.current) {
+      setJustUpdated(true);
+      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = setTimeout(() => {
+        setJustUpdated(false);
+      }, 1800);
+    }
+    return () => {
+      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+    };
+  }, [ingredients, totalCostNum, budgetNum]);
+
+  // Dimension constants
+  const width = 320;
+  const height = 260;
+  const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+  const radius = Math.min(width - margin.left - margin.right, height - margin.top - margin.bottom) / 2;
+  const innerRadius = radius * 0.62;
+  const outerRadius = radius;
+
+  const arc = useMemo(
+    () =>
+      d3
+        .arc<any>()
+        .innerRadius(innerRadius)
+        .outerRadius(outerRadius)
+        .cornerRadius(6),
+    [innerRadius, outerRadius]
+  );
+
+  const arcHover = useMemo(
+    () =>
+      d3
+        .arc<any>()
+        .innerRadius(innerRadius - 2)
+        .outerRadius(outerRadius + 7)
+        .cornerRadius(7),
+    [innerRadius, outerRadius]
+  );
+
+  // Main D3 rendering & update effect
   useEffect(() => {
     if (!svgRef.current || data.length === 0) return;
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const viewChanged = prevViewRef.current !== activeView;
+    prevViewRef.current = activeView;
 
-    const width = 320;
-    const height = 260;
-    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-
-    svg.attr("viewBox", `0 0 ${width} ${height}`).attr("class", "w-full h-auto overflow-visible");
+    // If view switched (donut <-> bars), reset SVG container
+    if (viewChanged || !isInitializedRef.current) {
+      svg.selectAll("*").remove();
+      svg
+        .attr("viewBox", `0 0 ${width} ${height}`)
+        .attr("class", "w-full h-auto overflow-visible select-none");
+    }
 
     if (activeView === "donut") {
-      const radius = Math.min(width - margin.left - margin.right, height - margin.top - margin.bottom) / 2;
-      const innerRadius = radius * 0.62;
-      const outerRadius = radius;
+      let g = svg.select<SVGGElement>("g.donut-root");
+      const isFirstDonut = g.empty();
 
-      const g = svg
-        .append("g")
-        .attr("transform", `translate(${width / 2}, ${height / 2})`);
+      if (isFirstDonut) {
+        g = svg
+          .append("g")
+          .attr("class", "donut-root")
+          .attr("transform", `translate(${width / 2}, ${height / 2})`);
+
+        // Slices group
+        g.append("g").attr("class", "slices-group");
+
+        // Center labels group
+        const centerGroup = g.append("g").attr("class", "center-group").attr("text-anchor", "middle");
+
+        centerGroup
+          .append("text")
+          .attr("class", "cost-number font-mono font-bold text-lg fill-black dark:fill-white")
+          .attr("dy", "-0.3em")
+          .text("$0.00");
+
+        centerGroup
+          .append("text")
+          .attr("class", "cost-label text-[10px] font-semibold uppercase tracking-wider fill-black/60 dark:fill-white/60")
+          .attr("dy", "1.1em")
+          .style("opacity", 0)
+          .text(budgetNum > 0 ? "Total Spent" : "Est. Cost")
+          .transition()
+          .duration(700)
+          .delay(200)
+          .style("opacity", 1);
+
+        centerGroup
+          .append("text")
+          .attr("class", "budget-percent text-[9px] font-mono font-semibold fill-[#ec4899]")
+          .attr("dy", "2.4em")
+          .style("opacity", 0);
+      }
 
       const pie = d3
         .pie<CategorizedCostItem>()
@@ -313,135 +397,313 @@ export const RecipeCostD3Chart: React.FC<RecipeCostD3ChartProps> = ({
         .sort(null)
         .padAngle(0.03);
 
-      const arc = d3
-        .arc<d3.PieArcDatum<CategorizedCostItem>>()
-        .innerRadius(innerRadius)
-        .outerRadius(outerRadius)
-        .cornerRadius(6);
+      const pieData = pie(data);
+      const slicesGroup = g.select<SVGGElement>("g.slices-group");
 
-      const arcHover = d3
-        .arc<d3.PieArcDatum<CategorizedCostItem>>()
-        .innerRadius(innerRadius - 2)
-        .outerRadius(outerRadius + 6)
-        .cornerRadius(7);
+      // Bind slices with category key
+      const sliceSelection = slicesGroup
+        .selectAll<SVGPathElement, d3.PieArcDatum<CategorizedCostItem>>("path.pie-slice")
+        .data(pieData, (d: any) => d.data.key);
 
-      const arcs = g
-        .selectAll(".arc")
-        .data(pie(data))
+      // Handle EXIT slices
+      sliceSelection
+        .exit()
+        .transition()
+        .duration(500)
+        .ease(d3.easeCubicIn)
+        .attrTween("d", function (d: any) {
+          const current = (this as any)._current || d;
+          const i = d3.interpolate(current, {
+            startAngle: current.endAngle,
+            endAngle: current.endAngle,
+          });
+          return function (t: number) {
+            return arc(i(t)) || "";
+          };
+        })
+        .style("opacity", 0)
+        .remove();
+
+      // Handle ENTER slices
+      const enterSlices = sliceSelection
         .enter()
-        .append("g")
-        .attr("class", "arc")
-        .style("cursor", "pointer");
-
-      // Draw slices
-      arcs
         .append("path")
-        .attr("d", arc)
+        .attr("class", "pie-slice")
         .attr("fill", (d) => d.data.color)
         .attr("stroke", "#ffffff")
         .attr("stroke-width", 2)
-        .style("transition", "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)")
-        .attr("opacity", (d) => (hoveredCategory && hoveredCategory !== d.data.key ? 0.45 : 1))
+        .style("cursor", "pointer")
+        .style("opacity", 0)
         .on("mouseenter", function (event, d) {
           setHoveredCategory(d.data.key);
-          d3.select(this)
-            .transition()
-            .duration(200)
-            .attr("d", arcHover as any);
         })
         .on("mouseleave", function () {
           setHoveredCategory(null);
-          d3.select(this)
-            .transition()
-            .duration(200)
-            .attr("d", arc as any);
         });
 
-      // Center summary text
-      const centerGroup = g.append("g").attr("text-anchor", "middle");
+      if (isFirstDonut) {
+        // Initial entrance: smooth clockwise sweep unfurl transition
+        enterSlices
+          .style("opacity", 1)
+          .transition()
+          .duration(850)
+          .ease(d3.easeCubicOut)
+          .attrTween("d", function (d) {
+            const i = d3.interpolate({ startAngle: 0, endAngle: 0 }, d);
+            (this as any)._current = { ...d };
+            return function (t: number) {
+              return arc(i(t)) || "";
+            };
+          });
+      } else {
+        // Subsequent slice entries: expand from target startAngle
+        enterSlices
+          .transition()
+          .duration(700)
+          .ease(d3.easeCubicOut)
+          .style("opacity", 1)
+          .attrTween("d", function (d) {
+            const i = d3.interpolate({ startAngle: d.startAngle, endAngle: d.startAngle }, d);
+            (this as any)._current = { ...d };
+            return function (t: number) {
+              return arc(i(t)) || "";
+            };
+          });
+      }
+
+      // Handle UPDATE slices: smooth morph between previous and current angles
+      sliceSelection
+        .transition()
+        .duration(750)
+        .ease(d3.easeCubicInOut)
+        .attr("fill", (d) => d.data.color)
+        .attrTween("d", function (d) {
+          const current = (this as any)._current || {
+            startAngle: d.startAngle,
+            endAngle: d.startAngle,
+          };
+          const i = d3.interpolate(current, d);
+          (this as any)._current = { ...d };
+          return function (t: number) {
+            return arc(i(t)) || "";
+          };
+        });
+
+      // Update Center Count-Up Numbers with transitions
+      const centerGroup = g.select<SVGGElement>("g.center-group");
+
+      const costText = centerGroup.select<SVGTextElement>("text.cost-number");
+      const startCost = isFirstDonut ? 0 : prevCostRef.current;
+      costText
+        .transition()
+        .duration(800)
+        .ease(d3.easeCubicOut)
+        .tween("text", function () {
+          const i = d3.interpolateNumber(startCost, totalCostNum);
+          return function (t: number) {
+            this.textContent = `$${i(t).toFixed(2)}`;
+          };
+        });
 
       centerGroup
-        .append("text")
-        .attr("dy", "-0.3em")
-        .attr("class", "font-mono font-bold text-lg fill-black dark:fill-white")
-        .text(`$${totalCostNum.toFixed(2)}`);
-
-      centerGroup
-        .append("text")
-        .attr("dy", "1.1em")
-        .attr("class", "text-[10px] font-semibold uppercase tracking-wider fill-black/60 dark:fill-white/60")
+        .select<SVGTextElement>("text.cost-label")
         .text(budgetNum > 0 ? "Total Spent" : "Est. Cost");
 
+      const percentText = centerGroup.select<SVGTextElement>("text.budget-percent");
       if (budgetNum > 0) {
-        centerGroup
-          .append("text")
-          .attr("dy", "2.4em")
-          .attr("class", "text-[9px] font-mono font-semibold fill-[#ec4899]")
-          .text(`${budgetUtilization}% of budget`);
+        percentText.style("opacity", 1);
+        const startPct = isFirstDonut ? 0 : prevBudgetUtilizationRef.current;
+        percentText
+          .transition()
+          .duration(800)
+          .ease(d3.easeCubicOut)
+          .tween("text", function () {
+            const i = d3.interpolateNumber(startPct, budgetUtilization);
+            return function (t: number) {
+              this.textContent = `${Math.round(i(t))}% of budget`;
+            };
+          });
+      } else {
+        percentText.style("opacity", 0).text("");
       }
+
+      // Save previous numbers for next transition
+      prevCostRef.current = totalCostNum;
+      prevBudgetUtilizationRef.current = budgetUtilization;
     } else {
-      // Horizontal Bar Breakdown View
+      // Horizontal Bar Chart View
       const innerWidth = width - 40;
       const barHeight = 22;
       const gap = 12;
 
-      const g = svg.append("g").attr("transform", `translate(20, 20)`);
+      let g = svg.select<SVGGElement>("g.bars-root");
+      const isFirstBars = g.empty();
+
+      if (isFirstBars) {
+        g = svg.append("g").attr("class", "bars-root").attr("transform", `translate(20, 20)`);
+      }
 
       const xScale = d3
         .scaleLinear()
         .domain([0, d3.max(data, (d) => d.totalCost) || 1])
-        .range([0, innerWidth - 110]);
+        .range([0, innerWidth - 115]);
 
-      const barGroups = g
-        .selectAll(".bar-group")
-        .data(data)
+      const barRowSelection = g
+        .selectAll<SVGGElement, CategorizedCostItem>("g.bar-row")
+        .data(data, (d: any) => d.key);
+
+      // EXIT bar rows
+      barRowSelection
+        .exit()
+        .transition()
+        .duration(350)
+        .ease(d3.easeCubicIn)
+        .style("opacity", 0)
+        .attr("transform", (_, i) => `translate(0, ${i * (barHeight + gap) + 10})`)
+        .remove();
+
+      // ENTER bar rows
+      const enterRows = barRowSelection
         .enter()
         .append("g")
-        .attr("class", "bar-group")
+        .attr("class", "bar-row")
         .attr("transform", (_, i) => `translate(0, ${i * (barHeight + gap)})`)
         .style("cursor", "pointer")
+        .style("opacity", 0)
         .on("mouseenter", (_, d) => setHoveredCategory(d.key))
         .on("mouseleave", () => setHoveredCategory(null));
 
-      // Category Label
-      barGroups
+      // Category text label
+      enterRows
         .append("text")
+        .attr("class", "category-label text-[11px] font-semibold fill-black/80 dark:fill-white/80")
         .attr("x", 0)
         .attr("y", barHeight / 2 + 4)
-        .attr("class", "text-[11px] font-semibold fill-black/80 dark:fill-white/80")
         .text((d) => d.category);
 
-      // Background Bar
-      barGroups
+      // Background Track
+      enterRows
         .append("rect")
-        .attr("x", 110)
+        .attr("class", "track-bg")
+        .attr("x", 115)
         .attr("y", 0)
-        .attr("width", innerWidth - 110)
+        .attr("width", innerWidth - 115)
         .attr("height", barHeight)
         .attr("rx", 5)
         .attr("fill", "rgba(0,0,0,0.05)");
 
-      // Foreground Value Bar
-      barGroups
+      // Foreground Animated Value Bar
+      enterRows
         .append("rect")
-        .attr("x", 110)
+        .attr("class", "value-bar")
+        .attr("x", 115)
         .attr("y", 0)
-        .attr("width", (d) => Math.max(8, xScale(d.totalCost)))
         .attr("height", barHeight)
         .attr("rx", 5)
         .attr("fill", (d) => d.color)
-        .attr("opacity", (d) => (hoveredCategory && hoveredCategory !== d.key ? 0.45 : 1))
-        .style("transition", "all 0.2s ease");
+        .attr("width", 0);
 
-      // Value label
-      barGroups
+      // Value label text
+      enterRows
         .append("text")
-        .attr("x", (d) => 115 + Math.max(8, xScale(d.totalCost)) + 6)
+        .attr("class", "val-label text-[10px] font-mono font-bold fill-black/70 dark:fill-white/70")
+        .attr("x", 120)
         .attr("y", barHeight / 2 + 4)
-        .attr("class", "text-[10px] font-mono font-bold fill-black/70 dark:fill-white/70")
+        .style("opacity", 0)
         .text((d) => `$${d.totalCost.toFixed(2)} (${d.percentage}%)`);
+
+      // Animate ENTER rows with staggered entrance
+      enterRows
+        .transition()
+        .duration(650)
+        .delay((_, i) => i * 65)
+        .ease(d3.easeCubicOut)
+        .style("opacity", 1);
+
+      enterRows
+        .select(".value-bar")
+        .transition()
+        .duration(750)
+        .delay((_, i) => i * 65)
+        .ease(d3.easeCubicOut)
+        .attr("width", (d) => Math.max(8, xScale(d.totalCost)));
+
+      enterRows
+        .select(".val-label")
+        .transition()
+        .duration(750)
+        .delay((_, i) => i * 65 + 100)
+        .ease(d3.easeCubicOut)
+        .style("opacity", 1)
+        .attr("x", (d) => 120 + Math.max(8, xScale(d.totalCost)) + 6);
+
+      // UPDATE existing bar rows
+      barRowSelection
+        .transition()
+        .duration(650)
+        .ease(d3.easeCubicOut)
+        .attr("transform", (_, i) => `translate(0, ${i * (barHeight + gap)})`)
+        .style("opacity", 1);
+
+      barRowSelection
+        .select<SVGTextElement>(".category-label")
+        .text((d) => d.category);
+
+      barRowSelection
+        .select<SVGRectElement>(".value-bar")
+        .transition()
+        .duration(700)
+        .ease(d3.easeCubicOut)
+        .attr("fill", (d) => d.color)
+        .attr("width", (d) => Math.max(8, xScale(d.totalCost)));
+
+      barRowSelection
+        .select<SVGTextElement>(".val-label")
+        .text((d) => `$${d.totalCost.toFixed(2)} (${d.percentage}%)`)
+        .transition()
+        .duration(700)
+        .ease(d3.easeCubicOut)
+        .attr("x", (d) => 120 + Math.max(8, xScale(d.totalCost)) + 6);
     }
-  }, [data, activeView, hoveredCategory, totalCostNum, budgetNum, budgetUtilization]);
+
+    isInitializedRef.current = true;
+  }, [data, activeView, totalCostNum, budgetNum, budgetUtilization, arc, arcHover]);
+
+  // Dedicated hover effect without rebuilding or interrupting main chart transitions
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+
+    if (activeView === "donut") {
+      svg
+        .selectAll<SVGPathElement, d3.PieArcDatum<CategorizedCostItem>>("path.pie-slice")
+        .interrupt("hover")
+        .transition("hover")
+        .duration(220)
+        .ease(d3.easeCubicOut)
+        .attr("d", function (d) {
+          if (hoveredCategory === d.data.key) {
+            return arcHover(d) || "";
+          }
+          return arc(d) || "";
+        })
+        .style("opacity", function (d) {
+          if (!hoveredCategory) return 1;
+          return hoveredCategory === d.data.key ? 1 : 0.38;
+        });
+    } else {
+      svg
+        .selectAll<SVGGElement, CategorizedCostItem>("g.bar-row")
+        .interrupt("hover")
+        .transition("hover")
+        .duration(200)
+        .ease(d3.easeCubicOut)
+        .style("opacity", function (d) {
+          if (!hoveredCategory) return 1;
+          return hoveredCategory === d.key ? 1 : 0.4;
+        });
+    }
+  }, [hoveredCategory, activeView, arc, arcHover]);
 
   if (data.length === 0) return null;
 
@@ -462,6 +724,12 @@ export const RecipeCostD3Chart: React.FC<RecipeCostD3ChartProps> = ({
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30">
                 d3 chart
               </span>
+              {justUpdated && (
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse flex items-center gap-1 shadow-2xs">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>chart updated</span>
+                </span>
+              )}
             </h4>
             <p className="text-xs text-black/60 font-medium">
               Cost allocation by ingredient category relative to your budget.
