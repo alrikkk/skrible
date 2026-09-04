@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ShoppingCart,
   Check,
@@ -7,29 +7,39 @@ import {
   CheckCheck,
   DollarSign,
   Receipt,
-  Tag,
+  Trash2,
+  RotateCcw,
+  Sparkles,
+  ListFilter,
+  Share2,
 } from "lucide-react";
 
 interface ShoppingChecklistProps {
   ingredients: string[];
+  recipeTitle?: string;
 }
 
-interface ParsedIngredient {
+export interface GroceryItem {
+  id: string;
   raw: string;
   name: string;
   priceFormatted?: string;
   priceNumeric?: number;
   note?: string;
+  checked: boolean;
 }
 
-function parseIngredientItem(raw: string): ParsedIngredient {
+function parseIngredientItem(raw: string): Omit<GroceryItem, "id" | "checked"> {
   let text = raw.trim();
   let note: string | undefined = undefined;
   let priceFormatted: string | undefined = undefined;
   let priceNumeric: number | undefined = undefined;
 
   // Check for notes in brackets or receipt remarks
-  const bracketMatch = text.match(/\[(.*?)\]/) || text.match(/\((Receipt:.*?)\)/i) || text.match(/\((portion cost:.*?)\)/i);
+  const bracketMatch =
+    text.match(/\[(.*?)\]/) ||
+    text.match(/\((Receipt:.*?)\)/i) ||
+    text.match(/\((portion cost:.*?)\)/i);
   if (bracketMatch) {
     note = bracketMatch[1];
     text = text.replace(bracketMatch[0], "").trim();
@@ -52,7 +62,7 @@ function parseIngredientItem(raw: string): ParsedIngredient {
   }
 
   // Strip leading list bullet and trailing dashes, colons, or punctuation
-  text = text.replace(/^[-*+\d.]+\s*/, "").replace(/[-—:,\s]+$/, "").trim();
+  text = text.replace(/^[-*+•\d.)]+\s*/, "").replace(/[-—:,\s]+$/, "").trim();
 
   return {
     raw,
@@ -63,158 +73,201 @@ function parseIngredientItem(raw: string): ParsedIngredient {
   };
 }
 
-export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredients: initialIngredients }) => {
-  const [items, setItems] = useState<string[]>([]);
-  const [checked, setChecked] = useState<Record<number, boolean>>({});
+export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
+  ingredients: initialIngredients,
+  recipeTitle,
+}) => {
+  const [items, setItems] = useState<GroceryItem[]>([]);
   const [filter, setFilter] = useState<"all" | "missing" | "ready">("all");
   const [newItemText, setNewItemText] = useState("");
-  const [copiedMissing, setCopiedMissing] = useState(false);
+  const [copiedMode, setCopiedMode] = useState<"needed" | "all" | null>(null);
 
-  // Sync with prop when ingredients change
+  // Synchronize when extracted recipe ingredients change
   useEffect(() => {
-    setItems(initialIngredients);
-    setChecked({});
+    if (!initialIngredients || initialIngredients.length === 0) {
+      setItems([]);
+      return;
+    }
+
+    setItems(
+      initialIngredients.map((raw, idx) => {
+        const parsed = parseIngredientItem(raw);
+        return {
+          id: `item-${idx}-${raw.replace(/[^a-zA-Z0-9]/g, "").slice(0, 15)}`,
+          ...parsed,
+          checked: false,
+        };
+      })
+    );
   }, [initialIngredients]);
 
-  const toggleCheck = (index: number) => {
-    setChecked((prev) => {
-      const next = { ...prev, [index]: !prev[index] };
-      // Haptic feedback
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate(25);
-      }
-      return next;
-    });
+  const toggleCheck = (id: string) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item))
+    );
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(25);
+    }
   };
 
   const handleToggleAll = () => {
-    const allChecked = items.length > 0 && items.every((_, idx) => checked[idx]);
-    const newCheckedState: Record<number, boolean> = {};
-    if (!allChecked) {
-      items.forEach((_, idx) => {
-        newCheckedState[idx] = true;
-      });
+    const allChecked = items.length > 0 && items.every((i) => i.checked);
+    setItems((prev) => prev.map((item) => ({ ...item, checked: !allChecked })));
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(30);
     }
-    setChecked(newCheckedState);
+  };
+
+  const handleDeleteItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = newItemText.trim();
     if (!clean) return;
-    setItems((prev) => [...prev, clean]);
+
+    const parsed = parseIngredientItem(clean);
+    const newItem: GroceryItem = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      ...parsed,
+      checked: false,
+    };
+
+    setItems((prev) => [...prev, newItem]);
     setNewItemText("");
   };
 
-  const handleCopyMissing = () => {
-    const missing = items.filter((_, idx) => !checked[idx]);
-    const textToCopy =
-      missing.length > 0
-        ? `🛒 Dorm Chef Shopping List (${missing.length} items needed):\n` +
-          missing.map((item) => `- [ ] ${item}`).join("\n")
-        : "All ingredients are ready in the pantry!";
+  const handleCopyList = (onlyNeeded: boolean) => {
+    const targetItems = onlyNeeded ? items.filter((i) => !i.checked) : items;
+    if (targetItems.length === 0) return;
 
-    navigator.clipboard.writeText(textToCopy);
-    setCopiedMissing(true);
-    setTimeout(() => setCopiedMissing(false), 2000);
+    const titlePrefix = recipeTitle
+      ? `🛒 Grocery List for ${recipeTitle}`
+      : "🛒 Recipe Grocery List";
+
+    const header = onlyNeeded
+      ? `${titlePrefix} (${targetItems.length} items to buy):`
+      : `${titlePrefix} (${targetItems.length} items):`;
+
+    const formattedLines = targetItems.map((item) => {
+      const checkMark = item.checked ? "[x]" : "[ ]";
+      const price = item.priceFormatted ? ` — ${item.priceFormatted}` : "";
+      const note = item.note ? ` (${item.note})` : "";
+      return `- ${checkMark} ${item.name}${price}${note}`;
+    });
+
+    const fullText = `${header}\n\n${formattedLines.join("\n")}`;
+
+    navigator.clipboard.writeText(fullText);
+    setCopiedMode(onlyNeeded ? "needed" : "all");
+    setTimeout(() => setCopiedMode(null), 2200);
   };
 
   if (!items || items.length === 0) return null;
 
-  const parsedItems: ParsedIngredient[] = items.map((item) => parseIngredientItem(item));
   const totalCount = items.length;
-  const readyCount = Object.entries(checked).filter(([k, v]) => v && Number(k) < items.length).length;
+  const readyCount = items.filter((i) => i.checked).length;
   const missingCount = totalCount - readyCount;
   const progressPercent = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
 
-  // Calculate costs if parsed prices exist
-  const pricedItems = parsedItems.filter((p) => p.priceNumeric !== undefined);
+  const pricedItems = items.filter((p) => p.priceNumeric !== undefined);
   const hasPrices = pricedItems.length > 0;
 
-  const neededCost = parsedItems.reduce((sum, p, idx) => {
-    if (!checked[idx] && p.priceNumeric !== undefined) {
-      return sum + p.priceNumeric;
+  const neededCost = items.reduce((sum, item) => {
+    if (!item.checked && item.priceNumeric !== undefined) {
+      return sum + item.priceNumeric;
     }
     return sum;
   }, 0);
 
-  const inPantryCost = parsedItems.reduce((sum, p, idx) => {
-    if (checked[idx] && p.priceNumeric !== undefined) {
-      return sum + p.priceNumeric;
+  const inPantryCost = items.reduce((sum, item) => {
+    if (item.checked && item.priceNumeric !== undefined) {
+      return sum + item.priceNumeric;
     }
     return sum;
   }, 0);
 
-  const visibleItems = parsedItems
-    .map((parsed, idx) => ({ parsed, idx, isDone: Boolean(checked[idx]) }))
-    .filter(({ isDone }) => {
-      if (filter === "ready") return isDone;
-      if (filter === "missing") return !isDone;
-      return true;
-    });
+  const visibleItems = items.filter((item) => {
+    if (filter === "ready") return item.checked;
+    if (filter === "missing") return !item.checked;
+    return true;
+  });
 
   return (
-    <div className="mt-6 bg-[#FAF8F5] border border-black/15 rounded-2xl p-5 sm:p-6 shadow-xs font-sans">
-      {/* Header with Title & Stats */}
+    <div className="mt-8 bg-[#FAF8F5] border-2 border-black/15 rounded-2xl p-5 sm:p-7 shadow-xs font-sans">
+      {/* Header with Title & Live Stats */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center">
-            <ShoppingCart className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center shadow-2xs">
+            <ShoppingCart className="w-4.5 h-4.5" />
           </div>
           <div>
-            <h4 className="font-bold text-sm text-black tracking-tight flex items-center gap-1.5">
-              <span>dorm ingredients & receipt checklist</span>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-black/5 text-black/60 border border-black/10">
-                interactive
+            <h4 className="font-bold text-base text-black tracking-tight flex items-center gap-2 flex-wrap">
+              <span>Recipe Grocery List</span>
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 font-semibold">
+                simple checklist
               </span>
+              {totalCount > 0 && (
+                <span className="text-[11px] font-mono text-black/50">
+                  ({totalCount} ingredients extracted)
+                </span>
+              )}
             </h4>
             <p className="text-xs text-black/60 font-medium">
-              Check off what you already have; see estimated grocery spend for the rest.
+              Check off ingredients you already have in your dorm; copy or buy the rest.
             </p>
           </div>
         </div>
 
-        {/* Status Pills */}
+        {/* Live Counters & Spent Badges */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           {hasPrices && (
-            <span className="text-xs font-semibold bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+            <span className="text-xs font-semibold bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
               <DollarSign className="w-3 h-3" />
-              <span>Need: ${neededCost.toFixed(2)}</span>
+              <span>To Buy: ${neededCost.toFixed(2)}</span>
             </span>
           )}
-          <span className="text-xs font-semibold bg-white border border-black/15 px-3 py-1 rounded-full shadow-2xs">
-            {readyCount} / {totalCount} ready ({progressPercent}%)
+          <span className="text-xs font-semibold bg-white border border-black/15 px-3 py-1 rounded-full shadow-2xs text-black">
+            {readyCount} of {totalCount} checked ({progressPercent}%)
           </span>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-full bg-black/5 rounded-full h-2 mb-4 overflow-hidden border border-black/10">
+      {/* Visual Progress Bar */}
+      <div className="w-full bg-black/5 rounded-full h-2.5 mb-4 overflow-hidden border border-black/10">
         <div
           className="bg-[#ec4899] h-full transition-all duration-300 ease-out rounded-full"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      {/* Price Summary Banner if prices parsed */}
+      {/* Price Summary Banner if itemized prices exist */}
       {hasPrices && (
-        <div className="mb-4 bg-white border border-black/10 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="mb-4 bg-white border border-black/10 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs">
           <div className="flex items-center gap-1.5 text-black/70 font-medium">
             <Receipt className="w-3.5 h-3.5 text-[#ec4899]" />
-            <span>Parsed Receipt & Portion Pricing:</span>
+            <span className="font-semibold text-black">Receipt & Portion Breakdown:</span>
           </div>
           <div className="flex items-center gap-3 font-semibold">
-            <span className="text-[#ec4899]">To Buy: ${neededCost.toFixed(2)}</span>
+            <span className="text-[#ec4899] flex items-center gap-1">
+              <span>To Buy:</span>
+              <span className="font-mono">${neededCost.toFixed(2)}</span>
+            </span>
             <span className="text-black/30">•</span>
-            <span className="text-emerald-700">In Pantry: ${inPantryCost.toFixed(2)}</span>
+            <span className="text-emerald-700 flex items-center gap-1">
+              <span>In Pantry:</span>
+              <span className="font-mono">${inPantryCost.toFixed(2)}</span>
+            </span>
           </div>
         </div>
       )}
 
       {/* Action Toolbar & Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4">
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 bg-white border border-black/15 p-1 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-1 bg-white border border-black/15 p-1 rounded-xl shadow-2xs">
           <button
             onClick={() => setFilter("all")}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -229,7 +282,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
               filter === "missing" ? "bg-[#ec4899] text-white" : "text-black/70 hover:bg-black/5"
             }`}
           >
-            Need to Buy ({missingCount})
+            To Buy ({missingCount})
           </button>
           <button
             onClick={() => setFilter("ready")}
@@ -241,114 +294,161 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
           </button>
         </div>
 
-        {/* Bulk Action Buttons */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons: Check All & Copy Grocery List */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleToggleAll}
-            className="flex items-center gap-1 bg-white hover:bg-black/5 text-black border border-black/15 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-            title={readyCount === totalCount ? "Uncheck all" : "Check all"}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            title={readyCount === totalCount ? "Uncheck all ingredients" : "Mark all as checked"}
           >
             <CheckCheck className="w-3.5 h-3.5 text-[#ec4899]" />
             <span>{readyCount === totalCount ? "Uncheck All" : "Check All"}</span>
           </button>
 
-          {missingCount > 0 && (
-            <button
-              onClick={handleCopyMissing}
-              className="flex items-center gap-1 bg-white hover:bg-black/5 text-black border border-black/15 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-              title="Copy needed ingredients to clipboard"
-            >
-              {copiedMissing ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-green-600" />
-                  <span className="text-green-600">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-black/70" />
-                  <span>Copy Needed</span>
-                </>
-              )}
-            </button>
-          )}
+          {/* Copy To-Buy Items */}
+          <button
+            onClick={() => handleCopyList(true)}
+            disabled={missingCount === 0}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 disabled:opacity-40 disabled:hover:bg-white text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            title="Copy needed grocery items to clipboard"
+          >
+            {copiedMode === "needed" ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-green-600 stroke-[2.5]" />
+                <span className="text-green-600 font-bold">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-black/70" />
+                <span>Copy To-Buy ({missingCount})</span>
+              </>
+            )}
+          </button>
+
+          {/* Copy Full Checklist */}
+          <button
+            onClick={() => handleCopyList(false)}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            title="Copy full ingredient checklist to clipboard"
+          >
+            {copiedMode === "all" ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-green-600 stroke-[2.5]" />
+                <span className="text-green-600 font-bold">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-black/70" />
+                <span>Copy All</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Checklist Items */}
-      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+      {/* Checkbox-based Grocery Items */}
+      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
         {visibleItems.length === 0 ? (
-          <div className="text-center py-6 border border-dashed border-black/20 rounded-xl bg-white p-4">
-            <p className="text-xs font-semibold text-black/60">
+          <div className="text-center py-8 border border-dashed border-black/20 rounded-xl bg-white p-5">
+            <p className="text-xs font-semibold text-black/70">
               {filter === "ready"
-                ? "No ingredients checked as ready yet. Click items to check them off!"
+                ? "No ingredients marked as ready in your pantry yet. Check off items above!"
                 : filter === "missing"
-                ? "All ingredients are marked as ready in your pantry!"
-                : "No ingredients found."}
+                ? "🎉 All ingredients are checked! You have everything ready in your pantry."
+                : "No ingredients found in this list."}
             </p>
           </div>
         ) : (
-          visibleItems.map(({ parsed, idx, isDone }) => {
+          visibleItems.map((item) => {
+            const isDone = item.checked;
             return (
               <div
-                key={idx}
-                onClick={() => toggleCheck(idx)}
-                className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
+                key={item.id}
+                onClick={() => toggleCheck(item.id)}
+                role="checkbox"
+                aria-checked={isDone}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    toggleCheck(item.id);
+                  }
+                }}
+                className={`group flex items-center justify-between gap-3 p-3.5 border-2 rounded-xl cursor-pointer transition-all select-none ${
                   isDone
-                    ? "bg-black/5 border-black/10 text-black/50"
-                    : "bg-white border-black/15 hover:border-black/30 shadow-2xs hover:shadow-xs"
+                    ? "bg-black/[0.03] border-black/10 text-black/45"
+                    : "bg-white border-black/15 hover:border-[#ec4899]/60 shadow-2xs hover:shadow-xs"
                 }`}
               >
-                <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${
-                    isDone
-                      ? "bg-[#ec4899] border-[#ec4899] text-white"
-                      : "border-black/30 bg-white group-hover:border-[#ec4899]"
-                  }`}
-                >
-                  {isDone ? <Check className="w-3.5 h-3.5 text-white stroke-[3]" /> : null}
-                </div>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {/* Checkbox box */}
+                  <div
+                    className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center border-2 transition-all shrink-0 ${
+                      isDone
+                        ? "bg-[#ec4899] border-[#ec4899] text-white"
+                        : "border-black/30 bg-white group-hover:border-[#ec4899]"
+                    }`}
+                  >
+                    {isDone ? <Check className="w-3.5 h-3.5 text-white stroke-[3]" /> : null}
+                  </div>
 
-                {/* Name & Note */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`font-medium text-xs transition-all ${
-                        isDone ? "line-through text-black/50" : "text-black font-semibold"
-                      }`}
-                    >
-                      {parsed.name}
-                    </span>
-                    {parsed.note && (
-                      <span className="text-[10px] text-black/50 italic bg-black/5 px-1.5 py-0.5 rounded">
-                        {parsed.note}
+                  {/* Ingredient Name & Receipt Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-xs font-medium transition-all ${
+                          isDone
+                            ? "line-through text-black/45 font-normal"
+                            : "text-black font-semibold"
+                        }`}
+                      >
+                        {item.name}
                       </span>
-                    )}
+                      {item.note && (
+                        <span className="text-[10px] text-black/55 italic bg-black/5 px-2 py-0.5 rounded-md border border-black/10">
+                          {item.note}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Price Badge if parsed */}
-                {parsed.priceFormatted && (
+                {/* Right Badges & Delete Action */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Price badge if item has price */}
+                  {item.priceFormatted && (
+                    <span
+                      className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border ${
+                        isDone
+                          ? "bg-black/5 text-black/40 border-black/10 line-through"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      }`}
+                    >
+                      {item.priceFormatted}
+                    </span>
+                  )}
+
+                  {/* Status Pill */}
                   <span
-                    className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border shrink-0 ${
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
                       isDone
-                        ? "bg-black/5 text-black/40 border-black/10 line-through"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        ? "bg-black/5 text-black/40 border-black/10"
+                        : "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
                     }`}
                   >
-                    {parsed.priceFormatted}
+                    {isDone ? "In Pantry" : "Need"}
                   </span>
-                )}
 
-                {/* Pantry / Need Pill */}
-                <span
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all shrink-0 ${
-                    isDone
-                      ? "bg-black/5 text-black/40 border-black/10"
-                      : "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
-                  }`}
-                >
-                  {isDone ? "In Pantry" : "Need"}
-                </span>
+                  {/* Delete Item Button */}
+                  <button
+                    onClick={(e) => handleDeleteItem(item.id, e)}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-black/40 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer"
+                    title="Remove ingredient from list"
+                    aria-label={`Remove ${item.name}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })
@@ -356,18 +456,18 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
       </div>
 
       {/* Add Custom Ingredient Form */}
-      <form onSubmit={handleAddItem} className="mt-3 flex items-center gap-2">
+      <form onSubmit={handleAddItem} className="mt-3.5 flex items-center gap-2">
         <input
           type="text"
           value={newItemText}
           onChange={(e) => setNewItemText(e.target.value)}
-          placeholder="Add extra ingredient or staple with price (e.g. Olive Oil — $0.35)..."
-          className="flex-1 bg-white border border-black/15 rounded-xl px-3 py-1.5 text-xs font-medium text-black outline-none focus:border-[#ec4899]"
+          placeholder="Add extra ingredient or dorm staple (e.g. Soy Sauce — $0.25, Paper Towels)..."
+          className="flex-1 bg-white border border-black/15 rounded-xl px-3.5 py-2 text-xs font-medium text-black outline-none focus:border-[#ec4899] focus:ring-1 focus:ring-[#ec4899]/30 shadow-2xs"
         />
         <button
           type="submit"
           disabled={!newItemText.trim()}
-          className="bg-black hover:bg-[#ec4899] disabled:opacity-40 disabled:hover:bg-black text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+          className="bg-black hover:bg-[#ec4899] disabled:opacity-40 disabled:hover:bg-black text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add</span>
@@ -376,5 +476,6 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({ ingredient
     </div>
   );
 };
+
 
 

@@ -27,6 +27,7 @@ import {
   Receipt,
   Utensils,
   Clock,
+  ShoppingCart,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -312,64 +313,140 @@ export const OutputView: React.FC<OutputViewProps> = ({
     }
   };
 
-  // Extract ingredients list if route is chef or contains ingredients
+  // Comprehensive ingredient extractor that extracts all ingredients from recipe outputs
   const extractIngredients = (text: string): string[] => {
     if (!text) return [];
     const lines = text.split("\n");
     const ingredients: string[] = [];
     let inIngredients = false;
 
+    // Pattern for ingredient section headers
+    const isIngredientHeader = (line: string): boolean => {
+      const trimmed = line.trim();
+      if (/^#{1,4}\s+.*(?:ingredient|shopping\s*list|grocery\s*list|items?\s*needed|what\s*(?:you'll|you\s*need)|pantry\s*items?|items?\s*used)/i.test(trimmed)) {
+        return true;
+      }
+      if (/^(?:\*{1,3}|_{1,3})?\s*(?:ingredients?|grocery\s*list|shopping\s*list|items?\s*needed|what\s*you\s*(?:'ll\s*)?need)[:\s]*(?:\*{1,3}|_{1,3})?$/i.test(trimmed)) {
+        return true;
+      }
+      const upper = trimmed.toUpperCase();
+      if (
+        (trimmed.startsWith("#") || trimmed.startsWith("**")) &&
+        (upper.includes("INGREDIENT") || upper.includes("SHOPPING LIST") || upper.includes("GROCERY LIST") || upper.includes("WHAT YOU NEED"))
+      ) {
+        return true;
+      }
+      return false;
+    };
+
+    // Pattern for section enders (e.g. Instructions, Steps, Directions, Time & Steps)
+    const isStopHeader = (line: string): boolean => {
+      const trimmed = line.trim();
+      if (/^#{1,4}\s+.*(?:instruction|direction|step|method|how\s*to|preparation|cooking|procedure|time\s*&\s*steps?|equipment|notes?|nutrition|tips?)/i.test(trimmed)) {
+        return true;
+      }
+      if (/^(?:\*{1,3}|_{1,3})?\s*(?:instructions?|directions?|steps?|method|procedure|preparation|time\s*&\s*steps?)[:\s]*(?:\*{1,3}|_{1,3})?$/i.test(trimmed)) {
+        return true;
+      }
+      return false;
+    };
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      const upper = line.toUpperCase();
 
-      // Detect header indicating ingredients
-      if (
-        upper.includes("INGREDIENT") ||
-        upper.includes("SHOPPING LIST") ||
-        upper.includes("GROCERY LIST") ||
-        upper.includes("PANTRY") ||
-        upper.includes("WHAT YOU NEED") ||
-        upper.includes("ITEMS USED")
-      ) {
+      if (isIngredientHeader(line)) {
         inIngredients = true;
         continue;
       }
 
-      // If in ingredients section and encounter next major heading
-      if (inIngredients && (line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### "))) {
-        break;
-      }
+      if (inIngredients) {
+        if (isStopHeader(line)) {
+          break;
+        }
 
-      if (inIngredients && (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || /^\d+\.\s+/.test(line))) {
-        const item = line.replace(/^[-*+\d.]+\s*/, "").replace(/\*\*/g, "").trim();
-        const lower = item.toLowerCase();
+        if (ingredients.length > 0 && /^#{1,3}\s+[^#]/.test(line)) {
+          break;
+        }
+
+        // Handle table row: | Ingredient | Amount | Price |
+        if (line.startsWith("|") && line.endsWith("|")) {
+          const cells = line.split("|").map((c) => c.trim()).filter(Boolean);
+          if (cells.length >= 1 && !cells[0].includes("---")) {
+            const firstCellLower = cells[0].toLowerCase();
+            if (!firstCellLower.includes("ingredient") && !firstCellLower.includes("item")) {
+              const combined = cells.join(" — ");
+              if (combined) ingredients.push(combined);
+            }
+          }
+          continue;
+        }
+
+        // Handle bullet items, numbered items, task items: - , * , + , 1. , - [ ]
         if (
-          item &&
-          !lower.startsWith("prep time") &&
-          !lower.startsWith("cook time") &&
-          !lower.startsWith("total time") &&
-          !lower.startsWith("estimated cost")
+          line.startsWith("- ") ||
+          line.startsWith("* ") ||
+          line.startsWith("+ ") ||
+          line.startsWith("• ") ||
+          /^\d+[\.)]\s+/.test(line)
         ) {
-          ingredients.push(item);
+          const clean = line
+            .replace(/^[-*+•\d.)]+\s*/, "")
+            .replace(/^\[[ xX]?\]\s*/, "")
+            .replace(/\*\*/g, "")
+            .trim();
+
+          const lower = clean.toLowerCase();
+          if (
+            clean &&
+            !lower.startsWith("prep time") &&
+            !lower.startsWith("cook time") &&
+            !lower.startsWith("total time") &&
+            !lower.startsWith("estimated cost") &&
+            !lower.startsWith("total recipe cost") &&
+            !lower.startsWith("cost per serving") &&
+            !lower.startsWith("remaining budget") &&
+            !lower.startsWith("servings:")
+          ) {
+            ingredients.push(clean);
+          }
         }
       }
     }
 
-    // Fallback: If no explicit ingredients heading was found but route is chef, find bulleted items
-    if (ingredients.length === 0 && (routeDetected === "chef" || text.includes("DORM CHEF") || text.includes("🍳"))) {
+    // Fallback: If no explicit ingredients heading was found but text is a recipe
+    if (
+      ingredients.length === 0 &&
+      (routeDetected === "chef" ||
+        text.includes("DORM CHEF") ||
+        text.includes("🍳") ||
+        text.includes("COST BREAKDOWN") ||
+        text.includes("Cost Per Serving") ||
+        /recipe/i.test(text))
+    ) {
       let inList = false;
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-          const clean = trimmed.replace(/^[-*]\s*/, "").replace(/\*\*/g, "").trim();
+        if (isStopHeader(trimmed) || (inList && /^\d+\.\s+/.test(trimmed))) {
+          if (inList) break;
+        }
+
+        if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("+ ")) {
+          const clean = trimmed
+            .replace(/^[-*+]\s*/, "")
+            .replace(/^\[[ xX]?\]\s*/, "")
+            .replace(/\*\*/g, "")
+            .trim();
           const lower = clean.toLowerCase();
+
           if (
             clean &&
             !lower.includes("estimated cost") &&
+            !lower.includes("total recipe cost") &&
+            !lower.includes("cost per serving") &&
             !lower.includes("remaining budget") &&
             !lower.includes("prep time") &&
-            !lower.includes("cook time")
+            !lower.includes("cook time") &&
+            !lower.includes("servings")
           ) {
             ingredients.push(clean);
             inList = true;
@@ -383,8 +460,13 @@ export const OutputView: React.FC<OutputViewProps> = ({
     return ingredients;
   };
 
-  const ingredientsList = routeDetected === "chef" ? extractIngredients(markdown) : [];
+  const ingredientsList = extractIngredients(markdown);
   const chefStats = routeDetected === "chef" ? extractChefStats(markdown) : null;
+
+  // Extract recipe title if available for grocery list naming
+  const firstLine = markdown.split("\n")[0] || "";
+  const recipeTitle =
+    firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() || "Recipe";
 
   return (
     <motion.div
@@ -465,6 +547,19 @@ export const OutputView: React.FC<OutputViewProps> = ({
             )}
             {isPlayingAudio ? "stop audio" : "listen audio"}
           </button>
+
+          {ingredientsList.length > 0 && (
+            <button
+              onClick={() => {
+                document.getElementById("recipe-grocery-list")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex items-center gap-1.5 bg-[#ec4899]/10 hover:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+              title="Jump to interactive grocery list"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>grocery list ({ingredientsList.length})</span>
+            </button>
+          )}
 
           {routeDetected === "notes" && (
             <button
@@ -736,9 +831,14 @@ export const OutputView: React.FC<OutputViewProps> = ({
           />
         )}
 
-      {/* DORM CHEF SHOPPING CHECKLIST */}
-      {(routeDetected === "chef" || ingredientsList.length > 0) && ingredientsList.length > 0 && (
-        <ShoppingChecklist ingredients={ingredientsList} />
+      {/* RECIPE CHECKBOX-BASED GROCERY LIST */}
+      {ingredientsList.length > 0 && (
+        <div id="recipe-grocery-list" className="scroll-mt-6">
+          <ShoppingChecklist
+            ingredients={ingredientsList}
+            recipeTitle={recipeTitle}
+          />
+        </div>
       )}
 
       {/* NEW UNTANGLE FOOTER */}
