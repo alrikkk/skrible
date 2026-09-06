@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   ShoppingCart,
   Check,
@@ -8,9 +9,6 @@ import {
   DollarSign,
   Receipt,
   Trash2,
-  RotateCcw,
-  Sparkles,
-  ListFilter,
   Share2,
 } from "lucide-react";
 
@@ -216,7 +214,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
               )}
             </h4>
             <p className="text-xs text-black/60 font-medium">
-              Check off ingredients you already have in your dorm; copy or buy the rest.
+              Check off ingredients you've bought or have in your pantry; copy or buy the rest.
             </p>
           </div>
         </div>
@@ -230,7 +228,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
             </span>
           )}
           <span className="text-xs font-semibold bg-white border border-black/15 px-3 py-1 rounded-full shadow-2xs text-black">
-            {readyCount} of {totalCount} checked ({progressPercent}%)
+            {readyCount} of {totalCount} bought ({progressPercent}%)
           </span>
         </div>
       </div>
@@ -257,7 +255,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
             </span>
             <span className="text-black/30">•</span>
             <span className="text-emerald-700 flex items-center gap-1">
-              <span>In Pantry:</span>
+              <span>Bought / Pantry:</span>
               <span className="font-mono">${inPantryCost.toFixed(2)}</span>
             </span>
           </div>
@@ -290,7 +288,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
               filter === "ready" ? "bg-black text-white" : "text-black/70 hover:bg-black/5"
             }`}
           >
-            In Pantry ({readyCount})
+            Bought ({readyCount})
           </button>
         </div>
 
@@ -299,10 +297,10 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
           <button
             onClick={handleToggleAll}
             className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-            title={readyCount === totalCount ? "Uncheck all ingredients" : "Mark all as checked"}
+            title={readyCount === totalCount ? "Uncheck all ingredients" : "Mark all as bought"}
           >
             <CheckCheck className="w-3.5 h-3.5 text-[#ec4899]" />
-            <span>{readyCount === totalCount ? "Uncheck All" : "Check All"}</span>
+            <span>{readyCount === totalCount ? "Uncheck All" : "Mark All Bought"}</span>
           </button>
 
           {/* Copy To-Buy Items */}
@@ -352,9 +350,9 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
           <div className="text-center py-8 border border-dashed border-black/20 rounded-xl bg-white p-5">
             <p className="text-xs font-semibold text-black/70">
               {filter === "ready"
-                ? "No ingredients marked as ready in your pantry yet. Check off items above!"
+                ? "No ingredients marked as bought yet. Click items to check them off!"
                 : filter === "missing"
-                ? "🎉 All ingredients are checked! You have everything ready in your pantry."
+                ? "🎉 All ingredients are marked as bought! You have everything ready."
                 : "No ingredients found in this list."}
             </p>
           </div>
@@ -376,38 +374,85 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
                 }}
                 className={`group flex items-center justify-between gap-3 p-3.5 border-2 rounded-xl cursor-pointer transition-all select-none ${
                   isDone
-                    ? "bg-black/[0.03] border-black/10 text-black/45"
+                    ? "bg-black/[0.02] border-black/10 text-black/45"
                     : "bg-white border-black/15 hover:border-[#ec4899]/60 shadow-2xs hover:shadow-xs"
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  {/* Checkbox box */}
-                  <div
-                    className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center border-2 transition-all shrink-0 ${
-                      isDone
-                        ? "bg-[#ec4899] border-[#ec4899] text-white"
-                        : "border-black/30 bg-white group-hover:border-[#ec4899]"
-                    }`}
+                  {/* Checkbox box with spring pop animation */}
+                  <motion.div
+                    animate={{
+                      scale: isDone ? [1, 1.25, 1] : 1,
+                      backgroundColor: isDone ? "#ec4899" : "#ffffff",
+                      borderColor: isDone ? "#ec4899" : "rgba(0, 0, 0, 0.3)",
+                    }}
+                    transition={{
+                      duration: 0.24,
+                      ease: "easeOut",
+                    }}
+                    className="w-5.5 h-5.5 rounded-lg flex items-center justify-center border-2 shrink-0 relative overflow-hidden"
                   >
-                    {isDone ? <Check className="w-3.5 h-3.5 text-white stroke-[3]" /> : null}
-                  </div>
+                    <AnimatePresence>
+                      {isDone && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0, rotate: -20 }}
+                          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                          exit={{ scale: 0, opacity: 0, rotate: 20 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 600,
+                            damping: 26,
+                          }}
+                        >
+                          <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
 
-                  {/* Ingredient Name & Receipt Details */}
+                  {/* Ingredient Name & Receipt Details with Animated Strike-through */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`text-xs font-medium transition-all ${
-                          isDone
-                            ? "line-through text-black/45 font-normal"
-                            : "text-black font-semibold"
-                        }`}
-                      >
-                        {item.name}
-                      </span>
+                      <div className="relative inline-flex items-center max-w-full">
+                        <motion.span
+                          animate={{
+                            color: isDone ? "rgba(0, 0, 0, 0.4)" : "rgba(0, 0, 0, 0.95)",
+                          }}
+                          transition={{ duration: 0.25 }}
+                          className={`text-xs select-none block transition-colors ${
+                            isDone ? "font-normal" : "font-semibold text-black"
+                          }`}
+                        >
+                          {item.name}
+                        </motion.span>
+
+                        {/* Animated Pen/Marker Strike-Through Line once marked as bought */}
+                        <motion.span
+                          aria-hidden="true"
+                          initial={false}
+                          animate={{
+                            scaleX: isDone ? 1 : 0,
+                            opacity: isDone ? 0.95 : 0,
+                          }}
+                          transition={{
+                            duration: 0.32,
+                            ease: [0.16, 1, 0.3, 1], // snappy pen stroke draw
+                          }}
+                          style={{ transformOrigin: "left center" }}
+                          className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2.5px] bg-[#ec4899] rounded-full pointer-events-none"
+                        />
+                      </div>
+
                       {item.note && (
-                        <span className="text-[10px] text-black/55 italic bg-black/5 px-2 py-0.5 rounded-md border border-black/10">
+                        <motion.span
+                          animate={{
+                            opacity: isDone ? 0.45 : 0.85,
+                          }}
+                          transition={{ duration: 0.2 }}
+                          className="text-[10px] text-black/55 italic bg-black/5 px-2 py-0.5 rounded-md border border-black/10 select-none"
+                        >
                           {item.note}
-                        </span>
+                        </motion.span>
                       )}
                     </div>
                   </div>
@@ -417,15 +462,31 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   {/* Price badge if item has price */}
                   {item.priceFormatted && (
-                    <span
-                      className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border ${
-                        isDone
-                          ? "bg-black/5 text-black/40 border-black/10 line-through"
-                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      }`}
-                    >
-                      {item.priceFormatted}
-                    </span>
+                    <div className="relative inline-flex items-center">
+                      <span
+                        className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-colors ${
+                          isDone
+                            ? "bg-black/5 text-black/40 border-black/10"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}
+                      >
+                        {item.priceFormatted}
+                      </span>
+                      <motion.span
+                        aria-hidden="true"
+                        initial={false}
+                        animate={{
+                          scaleX: isDone ? 1 : 0,
+                          opacity: isDone ? 0.8 : 0,
+                        }}
+                        transition={{
+                          duration: 0.28,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                        style={{ transformOrigin: "left center" }}
+                        className="absolute left-1 right-1 top-1/2 -translate-y-1/2 h-[1.5px] bg-black/40 rounded-full pointer-events-none"
+                      />
+                    </div>
                   )}
 
                   {/* Status Pill */}
@@ -436,7 +497,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
                         : "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
                     }`}
                   >
-                    {isDone ? "In Pantry" : "Need"}
+                    {isDone ? "Bought ✓" : "To Buy"}
                   </span>
 
                   {/* Delete Item Button */}
