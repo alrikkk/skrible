@@ -3,8 +3,16 @@ import Markdown from "react-markdown";
 import { motion, Variants } from "motion/react";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import { RecipeCostD3Chart } from "./RecipeCostD3Chart";
+import { RecipeNutritionCard } from "./RecipeNutritionCard";
+import {
+  RecipeStepTimer,
+  ActiveTimerDock,
+  ActiveTimerInfo,
+  parseCookingTimeFromText,
+} from "./RecipeStepTimer";
 import { NotionExportModal } from "./NotionExportModal";
 import { getAuthHeaders } from "../lib/supabaseClient";
+import { NutritionInfo } from "../types";
 import {
   Copy,
   Check,
@@ -28,6 +36,8 @@ import {
   Utensils,
   Clock,
   ShoppingCart,
+  HeartPulse,
+  Timer,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -147,6 +157,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
+  const [nutritionData, setNutritionData] = useState<NutritionInfo | null>(null);
+  const [activeCookingTimer, setActiveCookingTimer] = useState<ActiveTimerInfo | null>(null);
 
   // Categorization tags state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -155,9 +167,11 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize tags based on route when new content arrives
+  // Initialize tags and reset nutrition data & active timer when new content arrives
   useEffect(() => {
     setSelectedTags([routeDetected === "chef" ? "Recipe" : "Study Note"]);
+    setNutritionData(null);
+    setActiveCookingTimer(null);
   }, [markdown, routeDetected]);
 
   const toggleTag = (tag: string) => {
@@ -462,11 +476,38 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
   const ingredientsList = extractIngredients(markdown);
   const chefStats = routeDetected === "chef" ? extractChefStats(markdown) : null;
+  const parsedServings = chefStats?.servings
+    ? parseInt(chefStats.servings.replace(/[^0-9]/g, ""), 10) || null
+    : null;
 
   // Extract recipe title if available for grocery list naming
   const firstLine = markdown.split("\n")[0] || "";
   const recipeTitle =
     firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() || "Recipe";
+
+  // Helper to extract clean plain text from React nodes (for time parsing)
+  const extractPlainText = (node: React.ReactNode): string => {
+    if (typeof node === "string" || typeof node === "number") {
+      return String(node);
+    }
+    if (Array.isArray(node)) {
+      return node.map(extractPlainText).join(" ");
+    }
+    if (React.isValidElement(node) && (node.props as any)?.children) {
+      return extractPlainText((node.props as any).children);
+    }
+    return "";
+  };
+
+  const handleScrollToStep = (stepNum?: number) => {
+    if (!stepNum) return;
+    const el = document.getElementById(`recipe-step-${stepNum}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-[#ec4899]");
+      setTimeout(() => el.classList.remove("ring-2", "ring-[#ec4899]"), 1500);
+    }
+  };
 
   return (
     <motion.div
@@ -558,6 +599,37 @@ export const OutputView: React.FC<OutputViewProps> = ({
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               <span>grocery list ({ingredientsList.length})</span>
+            </button>
+          )}
+
+          {(routeDetected === "chef" || ingredientsList.length > 0) && (
+            <button
+              onClick={() => {
+                document.getElementById("recipe-nutrition-breakdown")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+              title="Jump to nutritional breakdown & macros"
+            >
+              <HeartPulse className="w-3.5 h-3.5 text-emerald-600" />
+              <span>
+                {nutritionData ? `nutrition (${nutritionData.caloriesPerServing} cal)` : "nutrition & macros"}
+              </span>
+            </button>
+          )}
+
+          {routeDetected === "chef" && (
+            <button
+              onClick={() => {
+                const firstStep = document.querySelector("[id^='recipe-step-']");
+                if (firstStep) {
+                  firstStep.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+              }}
+              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+              title="Jump to recipe cooking steps and countdown timers"
+            >
+              <Timer className="w-3.5 h-3.5 text-amber-700" />
+              <span>cooking timers</span>
             </button>
           )}
 
@@ -688,14 +760,29 @@ export const OutputView: React.FC<OutputViewProps> = ({
               </div>
             </div>
 
-            {chefStats.costPerServing && (
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              {chefStats.costPerServing && (
                 <span className="bg-[#ec4899] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5">
                   <Utensils className="w-3.5 h-3.5" />
                   <span>{chefStats.costPerServing}</span>
                 </span>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("recipe-nutrition-breakdown")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                title="View or estimate calories and macros"
+              >
+                <HeartPulse className="w-3.5 h-3.5 text-emerald-600" />
+                <span>
+                  {nutritionData
+                    ? `${nutritionData.caloriesPerServing} kcal • ${nutritionData.proteinGrams}g protein`
+                    : "Nutrition & Macros"}
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -768,23 +855,83 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 {children}
               </motion.ul>
             ),
-            li: ({ children }) => (
-              <motion.li
-                variants={itemRevealVariants}
-                className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 p-3.5 rounded-xl font-medium text-sm text-black/90"
-              >
-                <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
-                <div className="flex-1">{children}</div>
-              </motion.li>
-            ),
-            ol: ({ children }) => (
-              <motion.ol
-                variants={markdownContainerVariants}
-                className="space-y-2.5 my-4 pl-0 list-none"
-              >
-                {children}
-              </motion.ol>
-            ),
+            li: ({ children, ...props }: any) => {
+              const textContent = extractPlainText(children);
+              const detectedTime = parseCookingTimeFromText(textContent);
+              const isRecipeStep =
+                props.isOrderedStep ||
+                (routeDetected === "chef" && detectedTime !== null);
+
+              if (isRecipeStep) {
+                return (
+                  <motion.li
+                    id={props.stepIndex ? `recipe-step-${props.stepIndex}` : undefined}
+                    variants={itemRevealVariants}
+                    className="flex flex-col bg-[#FAF8F5] border border-black/15 hover:border-black/30 p-3.5 sm:p-4 rounded-xl font-medium text-sm text-black/90 transition-all shadow-2xs scroll-mt-24 group"
+                  >
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        {props.stepIndex ? (
+                          <span className="bg-black text-white px-2.5 py-0.5 rounded-lg text-xs font-bold font-mono tracking-tight shrink-0 mt-0.5 flex items-center gap-1 shadow-2xs">
+                            <Utensils className="w-3 h-3 text-[#ec4899]" />
+                            <span>Step {props.stepIndex}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
+                        )}
+                        <div className="flex-1 leading-relaxed text-black/90">{children}</div>
+                      </div>
+
+                      {/* Detected time pill if present */}
+                      {detectedTime && (
+                        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-black/60 bg-black/5 px-2 py-0.5 rounded-md shrink-0 self-start border border-black/10">
+                          <Clock className="w-3 h-3 text-[#ec4899]" />
+                          <span>{detectedTime.label}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Integrated Countdown Timer Button & Controls */}
+                    <div className="mt-2.5 pt-2 border-t border-black/5 flex items-center justify-between gap-2 flex-wrap">
+                      <RecipeStepTimer
+                        stepNumber={props.stepIndex}
+                        stepText={textContent}
+                        onTimerChange={(info) => setActiveCookingTimer(info)}
+                      />
+                    </div>
+                  </motion.li>
+                );
+              }
+
+              return (
+                <motion.li
+                  variants={itemRevealVariants}
+                  className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 p-3.5 rounded-xl font-medium text-sm text-black/90"
+                >
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
+                  <div className="flex-1">{children}</div>
+                </motion.li>
+              );
+            },
+            ol: ({ children }) => {
+              const items = React.Children.toArray(children);
+              return (
+                <motion.ol
+                  variants={markdownContainerVariants}
+                  className="space-y-3.5 my-4 pl-0 list-none"
+                >
+                  {items.map((child, index) => {
+                    if (React.isValidElement(child)) {
+                      return React.cloneElement(child as React.ReactElement<any>, {
+                        stepIndex: index + 1,
+                        isOrderedStep: true,
+                      });
+                    }
+                    return child;
+                  })}
+                </motion.ol>
+              );
+            },
             p: ({ children }) => (
               <motion.p
                 variants={itemRevealVariants}
@@ -811,6 +958,18 @@ export const OutputView: React.FC<OutputViewProps> = ({
           {markdown}
         </Markdown>
       </motion.div>
+
+      {/* DORM CHEF NUTRITIONAL PROFILE & MACROS ESTIMATION CARD */}
+      {(routeDetected === "chef" || ingredientsList.length > 0) && (
+        <RecipeNutritionCard
+          recipeText={markdown}
+          ingredients={ingredientsList}
+          servingsCount={parsedServings}
+          recipeTitle={recipeTitle}
+          initialNutrition={nutritionData}
+          onNutritionLoaded={(data) => setNutritionData(data)}
+        />
+      )}
 
       {/* DORM CHEF D3 RECIPE COST CATEGORY BREAKDOWN CHART */}
       {(routeDetected === "chef" || ingredientsList.length > 0) &&
@@ -850,6 +1009,13 @@ export const OutputView: React.FC<OutputViewProps> = ({
           <RotateCcw className="w-3.5 h-3.5" /> untangle something else
         </button>
       </div>
+
+      {/* FLOATING ACTIVE COOKING TIMER DOCK */}
+      <ActiveTimerDock
+        activeTimer={activeCookingTimer}
+        onScrollToStep={handleScrollToStep}
+        onDismiss={() => setActiveCookingTimer(null)}
+      />
 
     </motion.div>
   );

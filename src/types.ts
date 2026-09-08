@@ -26,6 +26,38 @@ export interface Flashcard {
   tag: string;
 }
 
+export interface IngredientNutrition {
+  name: string;
+  amount?: string;
+  calories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+}
+
+export interface NutritionInfo {
+  recipeName: string;
+  servings: number;
+  caloriesPerServing: number;
+  totalCalories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+  fiberGrams?: number;
+  sodiumMg?: number;
+  totalProteinGrams?: number;
+  totalCarbsGrams?: number;
+  totalFatGrams?: number;
+  macroPercentages?: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  dietaryTags?: string[];
+  healthNote?: string;
+  ingredientBreakdown?: IngredientNutrition[];
+}
+
 export interface PresetSample {
   id: string;
   title: string;

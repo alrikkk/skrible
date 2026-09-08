@@ -382,7 +382,7 @@ function getGenAI() {
 async function generateContentWithRetry(
   ai: GoogleGenAI,
   params: { contents: any; config?: any },
-  modelsToTry: string[] = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
+  modelsToTry: string[] = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
 ) {
   let lastError: any = null;
 
@@ -589,6 +589,85 @@ ${markdownNote}`;
   } catch (error: any) {
     console.error("Error in /api/flashcards:", error);
     res.status(500).json({ error: error?.message || "Failed to generate flashcards." });
+  }
+});
+
+// Nutrition & Macro Estimation Endpoint
+app.post("/api/nutrition", async (req, res) => {
+  try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
+    const { recipeText, ingredients = [], servings } = req.body;
+    if (!recipeText && (!ingredients || ingredients.length === 0)) {
+      return res.status(400).json({ error: "No recipe or ingredients provided." });
+    }
+
+    const ai = getGenAI();
+    const prompt = `You are an expert sports nutritionist and practical student meal-prep advisor.
+Analyze the following recipe and ingredients list to estimate its comprehensive nutritional breakdown.
+Calculate realistic calorie and macronutrient (protein, carbohydrates, fats, fiber, sodium) values.
+
+Recipe Content:
+${recipeText}
+
+${ingredients.length > 0 ? `Itemized Ingredients:\n${ingredients.join("\n")}` : ""}
+${servings ? `Servings requested: ${servings}` : ""}
+
+Provide realistic estimations both per serving and for the entire recipe yield.
+Return valid JSON adhering strictly to this schema:
+{
+  "recipeName": "Recipe Name",
+  "servings": 2,
+  "caloriesPerServing": 450,
+  "totalCalories": 900,
+  "proteinGrams": 28,
+  "carbsGrams": 52,
+  "fatGrams": 14,
+  "fiberGrams": 6,
+  "sodiumMg": 520,
+  "totalProteinGrams": 56,
+  "totalCarbsGrams": 104,
+  "totalFatGrams": 28,
+  "macroPercentages": {
+    "protein": 25,
+    "carbs": 46,
+    "fat": 29
+  },
+  "dietaryTags": ["High Protein", "Quick Prep", "Budget Fuel"],
+  "healthNote": "Balanced macro profile with good complex carbs for sustained mental focus and study energy.",
+  "ingredientBreakdown": [
+    {
+      "name": "Egg (large)",
+      "amount": "2 large",
+      "calories": 140,
+      "proteinGrams": 12,
+      "carbsGrams": 1,
+      "fatGrams": 10
+    }
+  ]
+}
+Make sure macroPercentages sum up to approximately 100%. Keep numeric values as numbers without unit strings.`;
+
+    const response = await generateContentWithRetry(ai, {
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2,
+      },
+    });
+
+    const nutrition = JSON.parse(response.text || "{}");
+
+    // Record usage
+    await recordUsageLog(auth, "/api/nutrition");
+
+    res.json({ nutrition });
+  } catch (error: any) {
+    console.error("Error in /api/nutrition:", error);
+    res.status(500).json({ error: error?.message || "Failed to estimate nutritional breakdown." });
   }
 });
 
