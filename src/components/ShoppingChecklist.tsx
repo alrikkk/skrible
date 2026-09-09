@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, Variants } from "motion/react";
 import {
   ShoppingCart,
   Check,
@@ -11,6 +11,36 @@ import {
   Trash2,
   Share2,
 } from "lucide-react";
+
+const checklistContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.045,
+      delayChildren: 0.03,
+    },
+  },
+};
+
+const checklistItemVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 12,
+    scale: 0.98,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 420,
+      damping: 26,
+      mass: 0.8,
+    },
+  },
+};
 
 interface ShoppingChecklistProps {
   ingredients: string[];
@@ -80,23 +110,35 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
   const [newItemText, setNewItemText] = useState("");
   const [copiedMode, setCopiedMode] = useState<"needed" | "all" | null>(null);
 
-  // Synchronize when extracted recipe ingredients change
+  // Synchronize when extracted recipe ingredients change (preserving checked state)
   useEffect(() => {
     if (!initialIngredients || initialIngredients.length === 0) {
       setItems([]);
       return;
     }
 
-    setItems(
-      initialIngredients.map((raw, idx) => {
+    setItems((prev) => {
+      const checkedMap = new Map<string, boolean>();
+      prev.forEach((p, idx) => {
+        // Map by name and by index as fallback
+        checkedMap.set(p.name.toLowerCase().replace(/[^a-z0-9]/g, ""), p.checked);
+        checkedMap.set(`idx-${idx}`, p.checked);
+      });
+
+      return initialIngredients.map((raw, idx) => {
         const parsed = parseIngredientItem(raw);
+        const key = parsed.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const wasChecked = checkedMap.has(key)
+          ? checkedMap.get(key)
+          : checkedMap.get(`idx-${idx}`) || false;
+
         return {
           id: `item-${idx}-${raw.replace(/[^a-zA-Z0-9]/g, "").slice(0, 15)}`,
           ...parsed,
-          checked: false,
+          checked: Boolean(wasChecked),
         };
-      })
-    );
+      });
+    });
   }, [initialIngredients]);
 
   const toggleCheck = (id: string) => {
@@ -345,9 +387,18 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
       </div>
 
       {/* Checkbox-based Grocery Items */}
-      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+      <motion.div
+        key={`checklist-${filter}-${items.length}`}
+        variants={checklistContainerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-2 max-h-96 overflow-y-auto pr-1"
+      >
         {visibleItems.length === 0 ? (
-          <div className="text-center py-8 border border-dashed border-black/20 rounded-xl bg-white p-5">
+          <motion.div
+            variants={checklistItemVariants}
+            className="text-center py-8 border border-dashed border-black/20 rounded-xl bg-white p-5"
+          >
             <p className="text-xs font-semibold text-black/70">
               {filter === "ready"
                 ? "No ingredients marked as bought yet. Click items to check them off!"
@@ -355,13 +406,15 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
                 ? "🎉 All ingredients are marked as bought! You have everything ready."
                 : "No ingredients found in this list."}
             </p>
-          </div>
+          </motion.div>
         ) : (
           visibleItems.map((item) => {
             const isDone = item.checked;
             return (
-              <div
+              <motion.div
                 key={item.id}
+                variants={checklistItemVariants}
+                whileHover={{ scale: 1.006, transition: { duration: 0.15 } }}
                 onClick={() => toggleCheck(item.id)}
                 role="checkbox"
                 aria-checked={isDone}
@@ -510,11 +563,11 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
-      </div>
+      </motion.div>
 
       {/* Add Custom Ingredient Form */}
       <form onSubmit={handleAddItem} className="mt-3.5 flex items-center gap-2">

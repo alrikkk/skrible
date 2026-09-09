@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Markdown from "react-markdown";
 import { motion, Variants } from "motion/react";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import { RecipeCostD3Chart } from "./RecipeCostD3Chart";
 import { RecipeNutritionCard } from "./RecipeNutritionCard";
+import { ServingMultiplierBar } from "./ServingMultiplierBar";
+import {
+  scaleRecipeMarkdown,
+  scaleIngredientsList,
+  scaleIngredientLine,
+} from "../utils/servingScaler";
 import {
   RecipeStepTimer,
   ActiveTimerDock,
@@ -38,6 +44,7 @@ import {
   ShoppingCart,
   HeartPulse,
   Timer,
+  Users,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -125,6 +132,66 @@ const markdownContainerVariants: Variants = {
     transition: {
       staggerChildren: 0.05,
       delayChildren: 0.04,
+    },
+  },
+};
+
+const ingredientListContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.065,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const ingredientItemVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 14,
+    scale: 0.98,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 380,
+      damping: 26,
+      mass: 0.8,
+    },
+  },
+};
+
+const stepListContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.085,
+      delayChildren: 0.06,
+    },
+  },
+};
+
+const stepItemVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 20,
+    scale: 0.97,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 340,
+      damping: 24,
+      mass: 0.9,
     },
   },
 };
@@ -480,6 +547,35 @@ export const OutputView: React.FC<OutputViewProps> = ({
     ? parseInt(chefStats.servings.replace(/[^0-9]/g, ""), 10) || null
     : null;
 
+  const baseServings = parsedServings && parsedServings > 0 ? parsedServings : 1;
+  const [currentServings, setCurrentServings] = useState<number>(baseServings);
+
+  // Synchronize baseServings when new recipe is rendered
+  useEffect(() => {
+    setCurrentServings(parsedServings && parsedServings > 0 ? parsedServings : 1);
+  }, [markdown, parsedServings]);
+
+  const servingMultiplier = baseServings > 0 ? currentServings / baseServings : 1.0;
+  const isServingModified = Math.abs(servingMultiplier - 1) > 0.01;
+
+  // Recalculated ingredients list with updated measurements and prices
+  const scaledIngredientsList = useMemo(() => {
+    return scaleIngredientsList(ingredientsList, servingMultiplier);
+  }, [ingredientsList, servingMultiplier]);
+
+  // Recalculated recipe markdown with updated ingredient quantities in the ingredient section
+  const displayMarkdown = useMemo(() => {
+    return scaleRecipeMarkdown(markdown, servingMultiplier);
+  }, [markdown, servingMultiplier]);
+
+  const rawTotalCostNum = chefStats?.totalCost
+    ? parseFloat(chefStats.totalCost.replace(/[^0-9.]/g, ""))
+    : null;
+  const displayTotalCost =
+    rawTotalCostNum !== null && isServingModified
+      ? `$${(rawTotalCostNum * servingMultiplier).toFixed(2)}`
+      : chefStats?.totalCost;
+
   // Extract recipe title if available for grocery list naming
   const firstLine = markdown.split("\n")[0] || "";
   const recipeTitle =
@@ -588,6 +684,26 @@ export const OutputView: React.FC<OutputViewProps> = ({
             )}
             {isPlayingAudio ? "stop audio" : "listen audio"}
           </button>
+
+          {(routeDetected === "chef" || ingredientsList.length > 0) && (
+            <button
+              onClick={() => {
+                document.getElementById("recipe-servings-bar")?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+                isServingModified
+                  ? "bg-[#ec4899] text-white border-[#ec4899]"
+                  : "bg-white hover:bg-black/5 text-black border-black/15"
+              }`}
+              title="Adjust serving size and automatically recalculate ingredient quantities"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>
+                {currentServings} {currentServings === 1 ? "serving" : "servings"}
+                {isServingModified && ` (${Math.round(servingMultiplier * 100) / 100}x)`}
+              </span>
+            </button>
+          )}
 
           {ingredientsList.length > 0 && (
             <button
@@ -794,8 +910,17 @@ export const OutputView: React.FC<OutputViewProps> = ({
             )}
             {chefStats.totalCost && (
               <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
-                <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Total Recipe Cost</span>
-                <span className="text-sm sm:text-base font-bold text-black">{chefStats.totalCost}</span>
+                <span className="text-[10px] text-black/50 font-semibold block mb-0.5">
+                  Total Recipe Cost {isServingModified && "(Scaled)"}
+                </span>
+                <span className="text-sm sm:text-base font-bold text-black flex items-center gap-1.5 flex-wrap">
+                  <span>{displayTotalCost}</span>
+                  {isServingModified && (
+                    <span className="text-[10px] text-black/40 font-mono font-normal">
+                      (orig: {chefStats.totalCost})
+                    </span>
+                  )}
+                </span>
               </div>
             )}
             {chefStats.remainingBudget && (
@@ -804,18 +929,45 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 <span className="text-sm sm:text-base font-bold text-emerald-700">{chefStats.remainingBudget}</span>
               </div>
             )}
-            {chefStats.servings && (
+            {(chefStats.servings || isServingModified) && (
               <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
                 <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Portion Yield</span>
-                <span className="text-sm sm:text-base font-bold text-black">{chefStats.servings}</span>
+                <span className="text-sm sm:text-base font-bold text-black flex items-center gap-1 flex-wrap">
+                  <span>
+                    {currentServings} {currentServings === 1 ? "serving" : "servings"}
+                  </span>
+                  {isServingModified && (
+                    <span className="text-[10px] text-[#ec4899] font-mono font-bold">
+                      ({Math.round(servingMultiplier * 100) / 100}x)
+                    </span>
+                  )}
+                </span>
               </div>
             )}
           </div>
         </div>
       )}
 
+      {/* SERVING SIZE MULTIPLIER & INGREDIENT RECALCULATOR */}
+      {(routeDetected === "chef" || ingredientsList.length > 0) && (
+        <div id="recipe-servings-bar" className="mb-6 scroll-mt-24">
+          <ServingMultiplierBar
+            baseServings={baseServings}
+            currentServings={currentServings}
+            multiplier={Math.round(servingMultiplier * 100) / 100}
+            onServingsChange={(servings) => setCurrentServings(servings)}
+            onMultiplierChange={(mult) => {
+              const newServings = Math.round(baseServings * mult * 2) / 2;
+              setCurrentServings(Math.max(0.5, newServings));
+            }}
+            onReset={() => setCurrentServings(baseServings)}
+          />
+        </div>
+      )}
+
       {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING & STAGGERED REVEAL ANIMATIONS */}
       <motion.div
+        key={`${markdown.slice(0, 50)}-servings-${currentServings}`}
         variants={markdownContainerVariants}
         initial="hidden"
         animate="visible"
@@ -831,14 +983,43 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 {children}
               </motion.h1>
             ),
-            h2: ({ children }) => (
-              <motion.h2
-                variants={itemRevealVariants}
-                className="text-lg font-bold text-black border-l-3 border-[#ec4899] pl-3 py-0.5 mt-6 mb-3"
-              >
-                {children}
-              </motion.h2>
-            ),
+            h2: ({ children }) => {
+              const textContent = extractPlainText(children);
+              const isIngredientSection = /ingredient/i.test(textContent);
+              const isStepSection = /instruction|step|direction|method|cooking|prep/i.test(textContent);
+
+              return (
+                <motion.h2
+                  variants={itemRevealVariants}
+                  className={`text-lg font-bold text-black border-l-4 pl-3 py-1 mt-6 mb-3 flex items-center justify-between gap-2 rounded-r-lg ${
+                    isIngredientSection
+                      ? "border-emerald-500 bg-emerald-50/50"
+                      : isStepSection
+                      ? "border-[#ec4899] bg-pink-50/40"
+                      : "border-[#ec4899]"
+                  }`}
+                >
+                  <span className="flex-1 min-w-0">{children}</span>
+                  {isIngredientSection && (
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                      {isServingModified && (
+                        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[#ec4899]/15 text-[#ec4899] font-bold border border-[#ec4899]/30">
+                          {Math.round(servingMultiplier * 100) / 100}x Scaled
+                        </span>
+                      )}
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold tracking-wider border border-emerald-300/70">
+                        Pantry & Grocery
+                      </span>
+                    </div>
+                  )}
+                  {isStepSection && (
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-pink-100 text-[#ec4899] font-bold tracking-wider border border-[#ec4899]/30 shrink-0">
+                      Cook Steps
+                    </span>
+                  )}
+                </motion.h2>
+              );
+            },
             h3: ({ children }) => (
               <motion.h3
                 variants={itemRevealVariants}
@@ -849,7 +1030,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
             ),
             ul: ({ children }) => (
               <motion.ul
-                variants={markdownContainerVariants}
+                variants={ingredientListContainerVariants}
+                initial="hidden"
+                animate="visible"
                 className="space-y-2.5 my-4 pl-0 list-none"
               >
                 {children}
@@ -866,7 +1049,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 return (
                   <motion.li
                     id={props.stepIndex ? `recipe-step-${props.stepIndex}` : undefined}
-                    variants={itemRevealVariants}
+                    variants={stepItemVariants}
+                    whileHover={{ scale: 1.006, transition: { duration: 0.15 } }}
                     className="flex flex-col bg-[#FAF8F5] border border-black/15 hover:border-black/30 p-3.5 sm:p-4 rounded-xl font-medium text-sm text-black/90 transition-all shadow-2xs scroll-mt-24 group"
                   >
                     <div className="flex items-start justify-between gap-2.5">
@@ -903,13 +1087,26 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 );
               }
 
+              // Calculate original quantity if this item is scaled
+              const origScaleInfo = isServingModified
+                ? scaleIngredientLine(textContent, 1 / servingMultiplier)
+                : null;
+
               return (
                 <motion.li
-                  variants={itemRevealVariants}
-                  className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 p-3.5 rounded-xl font-medium text-sm text-black/90"
+                  variants={ingredientItemVariants}
+                  whileHover={{ scale: 1.006, transition: { duration: 0.15 } }}
+                  className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 hover:border-black/25 p-3.5 rounded-xl font-medium text-sm text-black/90 transition-colors shadow-2xs"
                 >
                   <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
-                  <div className="flex-1">{children}</div>
+                  <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="leading-relaxed">{children}</span>
+                    {isServingModified && origScaleInfo?.wasScaled && origScaleInfo?.scaledQuantity && (
+                      <span className="text-[11px] font-mono text-[#ec4899] bg-[#ec4899]/10 border border-[#ec4899]/25 px-1.5 py-0.5 rounded inline-flex items-center gap-1 font-semibold shrink-0">
+                        orig: {origScaleInfo.scaledQuantity}
+                      </span>
+                    )}
+                  </div>
                 </motion.li>
               );
             },
@@ -917,7 +1114,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
               const items = React.Children.toArray(children);
               return (
                 <motion.ol
-                  variants={markdownContainerVariants}
+                  variants={stepListContainerVariants}
+                  initial="hidden"
+                  animate="visible"
                   className="space-y-3.5 my-4 pl-0 list-none"
                 >
                   {items.map((child, index) => {
@@ -955,16 +1154,16 @@ export const OutputView: React.FC<OutputViewProps> = ({
             ),
           }}
         >
-          {markdown}
+          {displayMarkdown}
         </Markdown>
       </motion.div>
 
       {/* DORM CHEF NUTRITIONAL PROFILE & MACROS ESTIMATION CARD */}
       {(routeDetected === "chef" || ingredientsList.length > 0) && (
         <RecipeNutritionCard
-          recipeText={markdown}
-          ingredients={ingredientsList}
-          servingsCount={parsedServings}
+          recipeText={displayMarkdown}
+          ingredients={scaledIngredientsList}
+          servingsCount={currentServings}
           recipeTitle={recipeTitle}
           initialNutrition={nutritionData}
           onNutritionLoaded={(data) => setNutritionData(data)}
@@ -975,8 +1174,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
       {(routeDetected === "chef" || ingredientsList.length > 0) &&
         (Boolean(budget && budget.trim().length > 0) || Boolean(chefStats?.remainingBudget)) && (
           <RecipeCostD3Chart
-            ingredients={ingredientsList}
-            totalCost={chefStats?.totalCost}
+            ingredients={scaledIngredientsList}
+            totalCost={displayTotalCost}
             budget={
               budget ||
               (chefStats?.remainingBudget && chefStats?.totalCost
@@ -991,11 +1190,11 @@ export const OutputView: React.FC<OutputViewProps> = ({
         )}
 
       {/* RECIPE CHECKBOX-BASED GROCERY LIST */}
-      {ingredientsList.length > 0 && (
+      {scaledIngredientsList.length > 0 && (
         <div id="recipe-grocery-list" className="scroll-mt-6">
           <ShoppingChecklist
-            ingredients={ingredientsList}
-            recipeTitle={recipeTitle}
+            ingredients={scaledIngredientsList}
+            recipeTitle={`${recipeTitle}${isServingModified ? ` (${currentServings} Servings)` : ""}`}
           />
         </div>
       )}
