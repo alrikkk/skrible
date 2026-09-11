@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Users, Minus, Plus, RotateCcw, Sparkles } from "lucide-react";
+import { Users, Minus, Plus, RotateCcw, Sparkles, Flame } from "lucide-react";
 
 interface ServingMultiplierBarProps {
   baseServings: number;
@@ -11,6 +11,12 @@ interface ServingMultiplierBarProps {
   onReset: () => void;
   className?: string;
   compact?: boolean;
+  nutritionSummary?: {
+    caloriesPerServing: number;
+    proteinGrams: number;
+    carbsGrams?: number;
+    fatGrams?: number;
+  };
 }
 
 const PRESET_MULTIPLIERS = [
@@ -30,6 +36,7 @@ export const ServingMultiplierBar: React.FC<ServingMultiplierBarProps> = ({
   onReset,
   className = "",
   compact = false,
+  nutritionSummary,
 }) => {
   const isModified = Math.abs(multiplier - 1) > 0.01;
 
@@ -73,6 +80,12 @@ export const ServingMultiplierBar: React.FC<ServingMultiplierBarProps> = ({
                 <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[#ec4899]/15 text-[#ec4899] border border-[#ec4899]/30 flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" />
                   {multiplier}x Recalculated
+                </span>
+              )}
+              {nutritionSummary && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300/80 flex items-center gap-1 font-semibold">
+                  <Flame className="w-2.5 h-2.5 text-orange-500" />
+                  ~{nutritionSummary.caloriesPerServing} kcal • {nutritionSummary.proteinGrams}g P / serving
                 </span>
               )}
             </div>

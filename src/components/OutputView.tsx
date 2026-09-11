@@ -20,6 +20,10 @@ import { NotionExportModal } from "./NotionExportModal";
 import { getAuthHeaders } from "../lib/supabaseClient";
 import { NutritionInfo } from "../types";
 import {
+  estimateRecipeNutrition,
+  estimateIngredientNutrition,
+} from "../utils/nutritionEstimator";
+import {
   Copy,
   Check,
   Volume2,
@@ -45,6 +49,7 @@ import {
   HeartPulse,
   Timer,
   Users,
+  Flame,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -581,6 +586,13 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const recipeTitle =
     firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() || "Recipe";
 
+  // Real-time automatic estimated nutritional breakdown calculated from ingredients list and portion multiplier
+  const autoNutrition = useMemo(() => {
+    return estimateRecipeNutrition(scaledIngredientsList, currentServings, recipeTitle);
+  }, [scaledIngredientsList, currentServings, recipeTitle]);
+
+  const activeNutrition = nutritionData || autoNutrition;
+
   // Helper to extract clean plain text from React nodes (for time parsing)
   const extractPlainText = (node: React.ReactNode): string => {
     if (typeof node === "string" || typeof node === "number") {
@@ -728,7 +740,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             >
               <HeartPulse className="w-3.5 h-3.5 text-emerald-600" />
               <span>
-                {nutritionData ? `nutrition (${nutritionData.caloriesPerServing} cal)` : "nutrition & macros"}
+                nutrition (~{activeNutrition.caloriesPerServing} kcal • {activeNutrition.proteinGrams}g P)
               </span>
             </button>
           )}
@@ -893,15 +905,13 @@ export const OutputView: React.FC<OutputViewProps> = ({
               >
                 <HeartPulse className="w-3.5 h-3.5 text-emerald-600" />
                 <span>
-                  {nutritionData
-                    ? `${nutritionData.caloriesPerServing} kcal • ${nutritionData.proteinGrams}g protein`
-                    : "Nutrition & Macros"}
+                  {activeNutrition.caloriesPerServing} kcal • {activeNutrition.proteinGrams}g protein
                 </span>
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             {chefStats.costPerServing && (
               <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
                 <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Cost / Serving</span>
@@ -929,6 +939,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 <span className="text-sm sm:text-base font-bold text-emerald-700">{chefStats.remainingBudget}</span>
               </div>
             )}
+            <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
+              <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Est. Nutrition / Serving</span>
+              <span className="text-sm sm:text-base font-bold text-black flex items-center gap-1.5 flex-wrap">
+                <span>{activeNutrition.caloriesPerServing} kcal</span>
+                <span className="text-[11px] text-emerald-700 font-mono font-semibold">
+                  ({activeNutrition.proteinGrams}g P)
+                </span>
+              </span>
+            </div>
             {(chefStats.servings || isServingModified) && (
               <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
                 <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Portion Yield</span>
@@ -961,6 +980,12 @@ export const OutputView: React.FC<OutputViewProps> = ({
               setCurrentServings(Math.max(0.5, newServings));
             }}
             onReset={() => setCurrentServings(baseServings)}
+            nutritionSummary={{
+              caloriesPerServing: activeNutrition.caloriesPerServing,
+              proteinGrams: activeNutrition.proteinGrams,
+              carbsGrams: activeNutrition.carbsGrams,
+              fatGrams: activeNutrition.fatGrams,
+            }}
           />
         </div>
       )}
@@ -1092,6 +1117,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 ? scaleIngredientLine(textContent, 1 / servingMultiplier)
                 : null;
 
+              // Calculate item nutrition estimate
+              const ingNutrition =
+                routeDetected === "chef" ? estimateIngredientNutrition(textContent) : null;
+
               return (
                 <motion.li
                   variants={ingredientItemVariants}
@@ -1101,11 +1130,22 @@ export const OutputView: React.FC<OutputViewProps> = ({
                   <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
                   <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
                     <span className="leading-relaxed">{children}</span>
-                    {isServingModified && origScaleInfo?.wasScaled && origScaleInfo?.scaledQuantity && (
-                      <span className="text-[11px] font-mono text-[#ec4899] bg-[#ec4899]/10 border border-[#ec4899]/25 px-1.5 py-0.5 rounded inline-flex items-center gap-1 font-semibold shrink-0">
-                        orig: {origScaleInfo.scaledQuantity}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {ingNutrition && ingNutrition.calories > 0 && (
+                        <span
+                          className="text-[10px] font-mono text-black/60 bg-white border border-black/15 px-2 py-0.5 rounded-lg inline-flex items-center gap-1 font-semibold"
+                          title={`Estimated: ~${ingNutrition.calories} kcal, ${ingNutrition.proteinGrams}g protein, ${ingNutrition.carbsGrams}g carbs, ${ingNutrition.fatGrams}g fat`}
+                        >
+                          <Flame className="w-2.5 h-2.5 text-orange-500" />
+                          ~{ingNutrition.calories} kcal
+                        </span>
+                      )}
+                      {isServingModified && origScaleInfo?.wasScaled && origScaleInfo?.scaledQuantity && (
+                        <span className="text-[11px] font-mono text-[#ec4899] bg-[#ec4899]/10 border border-[#ec4899]/25 px-1.5 py-0.5 rounded inline-flex items-center gap-1 font-semibold">
+                          orig: {origScaleInfo.scaledQuantity}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </motion.li>
               );
@@ -1165,7 +1205,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           ingredients={scaledIngredientsList}
           servingsCount={currentServings}
           recipeTitle={recipeTitle}
-          initialNutrition={nutritionData}
+          initialNutrition={nutritionData || autoNutrition}
           onNutritionLoaded={(data) => setNutritionData(data)}
         />
       )}

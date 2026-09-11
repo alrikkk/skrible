@@ -33,6 +33,10 @@ export interface IngredientNutrition {
   proteinGrams: number;
   carbsGrams: number;
   fatGrams: number;
+  fiberGrams?: number;
+  sodiumMg?: number;
+  percentOfCalories?: number;
+  category?: "protein" | "carb" | "fat" | "vegetable" | "seasoning" | "dairy" | "other";
 }
 
 export interface NutritionInfo {
@@ -56,6 +60,8 @@ export interface NutritionInfo {
   dietaryTags?: string[];
   healthNote?: string;
   ingredientBreakdown?: IngredientNutrition[];
+  source?: "ingredient_estimate" | "ai_analysis";
+  isAiGenerated?: boolean;
 }
 
 export interface PresetSample {
