@@ -17,8 +17,16 @@ import {
   parseCookingTimeFromText,
 } from "./RecipeStepTimer";
 import { NotionExportModal } from "./NotionExportModal";
+import { ShareModal } from "./ShareModal";
+import { ExecutiveSummaryCard } from "./ExecutiveSummaryCard";
+import { MarkdownEditor } from "./MarkdownEditor";
+import {
+  isWebShareSupported,
+  shareViaWebShare,
+  SharePayloadOptions,
+} from "../utils/webShare";
 import { getAuthHeaders } from "../lib/supabaseClient";
-import { NutritionInfo } from "../types";
+import { NutritionInfo, ExecutiveSummary } from "../types";
 import {
   estimateRecipeNutrition,
   estimateIngredientNutrition,
@@ -50,6 +58,8 @@ import {
   Timer,
   Users,
   Flame,
+  Pencil,
+  Eye,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -60,6 +70,7 @@ interface OutputViewProps {
   onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[]) => void;
   isSaved: boolean;
   onNewUntangle: () => void;
+  onUpdateMarkdown?: (updatedMarkdown: string) => void;
 }
 
 interface ChefStats {
@@ -221,6 +232,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   onSaveToHistory,
   isSaved,
   onNewUntangle,
+  onUpdateMarkdown,
 }) => {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
@@ -229,8 +241,34 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionInfo | null>(null);
   const [activeCookingTimer, setActiveCookingTimer] = useState<ActiveTimerInfo | null>(null);
+
+  // Manual markdown refinement state
+  const [editedMarkdown, setEditedMarkdown] = useState<string>(markdown);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+
+  // Sync editedMarkdown when upstream markdown changes
+  useEffect(() => {
+    setEditedMarkdown(markdown);
+    setIsEditing(false);
+  }, [markdown]);
+
+  const handleMarkdownChange = (newVal: string) => {
+    setEditedMarkdown(newVal);
+    onUpdateMarkdown?.(newVal);
+  };
+
+  const activeMarkdown = editedMarkdown;
+  const isManuallyEdited = editedMarkdown !== markdown;
+
+  // Executive summary state
+  const [summaryData, setSummaryData] = useState<ExecutiveSummary | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isSummaryDismissed, setIsSummaryDismissed] = useState(false);
 
   // Categorization tags state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -244,6 +282,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
     setSelectedTags([routeDetected === "chef" ? "Recipe" : "Study Note"]);
     setNutritionData(null);
     setActiveCookingTimer(null);
+    setSummaryData(null);
+    setIsLoadingSummary(false);
+    setSummaryError(null);
+    setIsSummaryDismissed(false);
   }, [markdown, routeDetected]);
 
   const toggleTag = (tag: string) => {
@@ -294,7 +336,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
     }
 
     // Strip markdown tags for smooth natural narration
-    const cleanText = markdown
+    const cleanText = activeMarkdown
       .replace(/#{1,6}\s+/g, '') // strip headers
       .replace(/[*_~`]/g, '') // strip emphasis & code
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // strip link tags
@@ -317,45 +359,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
   // Copy Markdown
   const handleCopy = () => {
-    navigator.clipboard.writeText(markdown);
+    navigator.clipboard.writeText(displayMarkdown || activeMarkdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Web Share API for Social Sharing
-  const handleShare = async () => {
-    const title = routeDetected === "chef" ? "Skrible Dorm Chef Recipe" : "Skrible Untangled Notes";
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text: markdown,
-          url: window.location.href,
-        });
-      } catch (err) {
-        // User aborted share or share failed
-      }
-    } else {
-      // Fallback: copy to clipboard
-      try {
-        await navigator.clipboard.writeText(`${title}\n\n${markdown}`);
-        setShared(true);
-        setTimeout(() => setShared(false), 2000);
-      } catch (err) {
-        alert("Sharing not supported on this browser.");
-      }
-    }
-  };
-
-  // Mailto Email Share
-  const handleEmailShare = () => {
-    const subject = encodeURIComponent(
-      routeDetected === "chef" ? "Dorm Chef Recipe via Skrible" : "Untangled Notes via Skrible"
-    );
-    const body = encodeURIComponent(
-      `Hey! Check out these ${routeDetected === "chef" ? "dorm recipe ideas" : "untangled study notes"} from Skrible:\n\n${markdown}`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
   // Play Gemini TTS Audio
@@ -375,7 +381,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           "Content-Type": "application/json",
           ...authHeaders,
         },
-        body: JSON.stringify({ text: markdown }),
+        body: JSON.stringify({ text: activeMarkdown }),
       });
       const data = await res.json();
 
@@ -546,8 +552,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
     return ingredients;
   };
 
-  const ingredientsList = extractIngredients(markdown);
-  const chefStats = routeDetected === "chef" ? extractChefStats(markdown) : null;
+  const ingredientsList = extractIngredients(activeMarkdown);
+  const chefStats = routeDetected === "chef" ? extractChefStats(activeMarkdown) : null;
   const parsedServings = chefStats?.servings
     ? parseInt(chefStats.servings.replace(/[^0-9]/g, ""), 10) || null
     : null;
@@ -555,10 +561,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const baseServings = parsedServings && parsedServings > 0 ? parsedServings : 1;
   const [currentServings, setCurrentServings] = useState<number>(baseServings);
 
-  // Synchronize baseServings when new recipe is rendered
+  // Synchronize baseServings when recipe content changes
   useEffect(() => {
     setCurrentServings(parsedServings && parsedServings > 0 ? parsedServings : 1);
-  }, [markdown, parsedServings]);
+  }, [activeMarkdown, parsedServings]);
 
   const servingMultiplier = baseServings > 0 ? currentServings / baseServings : 1.0;
   const isServingModified = Math.abs(servingMultiplier - 1) > 0.01;
@@ -570,8 +576,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
   // Recalculated recipe markdown with updated ingredient quantities in the ingredient section
   const displayMarkdown = useMemo(() => {
-    return scaleRecipeMarkdown(markdown, servingMultiplier);
-  }, [markdown, servingMultiplier]);
+    return scaleRecipeMarkdown(activeMarkdown, servingMultiplier);
+  }, [activeMarkdown, servingMultiplier]);
 
   const rawTotalCostNum = chefStats?.totalCost
     ? parseFloat(chefStats.totalCost.replace(/[^0-9.]/g, ""))
@@ -582,7 +588,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       : chefStats?.totalCost;
 
   // Extract recipe title if available for grocery list naming
-  const firstLine = markdown.split("\n")[0] || "";
+  const firstLine = activeMarkdown.split("\n")[0] || "";
   const recipeTitle =
     firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() || "Recipe";
 
@@ -592,6 +598,64 @@ export const OutputView: React.FC<OutputViewProps> = ({
   }, [scaledIngredientsList, currentServings, recipeTitle]);
 
   const activeNutrition = nutritionData || autoNutrition;
+
+  // Share options payload for Web Share API and native app integrations
+  const sharePayloadOptions: SharePayloadOptions = useMemo(
+    () => ({
+      title: recipeTitle,
+      markdown: displayMarkdown,
+      routeDetected,
+      url: typeof window !== "undefined" ? window.location.href : "",
+      recipeStats: chefStats
+        ? {
+            costPerServing: chefStats.costPerServing,
+            totalCost: displayTotalCost,
+            servings: currentServings,
+          }
+        : undefined,
+      currentServings,
+      nutrition: activeNutrition
+        ? {
+            caloriesPerServing: activeNutrition.caloriesPerServing,
+            proteinGrams: activeNutrition.proteinGrams,
+            carbsGrams: activeNutrition.carbsGrams,
+            fatGrams: activeNutrition.fatGrams,
+          }
+        : undefined,
+    }),
+    [
+      recipeTitle,
+      displayMarkdown,
+      routeDetected,
+      chefStats,
+      displayTotalCost,
+      currentServings,
+      activeNutrition,
+    ]
+  );
+
+  // Web Share API to send notes or recipes to other apps
+  const handleShare = async () => {
+    // 1. If Web Share API is available in current browser context, invoke native sheet
+    if (isWebShareSupported()) {
+      const result = await shareViaWebShare(sharePayloadOptions);
+      if (result.success) {
+        setShared(true);
+        setShareToast(result.message || "Sent to app!");
+        setTimeout(() => {
+          setShared(false);
+          setShareToast(null);
+        }, 3000);
+        return;
+      }
+      if (result.method === "aborted") {
+        return;
+      }
+    }
+
+    // 2. If Web Share is not supported or blocked in iframe, open full ShareModal
+    setIsShareModalOpen(true);
+  };
 
   // Helper to extract clean plain text from React nodes (for time parsing)
   const extractPlainText = (node: React.ReactNode): string => {
@@ -614,6 +678,69 @@ export const OutputView: React.FC<OutputViewProps> = ({
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("ring-2", "ring-[#ec4899]");
       setTimeout(() => el.classList.remove("ring-2", "ring-[#ec4899]"), 1500);
+    }
+  };
+
+  // Generate concise bulleted executive summary of the content with AI
+  const handleSummarize = async () => {
+    // If summary is already generated and dismissed, un-dismiss and scroll to it
+    if (summaryData && isSummaryDismissed) {
+      setIsSummaryDismissed(false);
+      setTimeout(() => {
+        document
+          .getElementById("executive-summary-card")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+      return;
+    }
+
+    // If already visible, scroll to it smoothly
+    if (summaryData && !isSummaryDismissed) {
+      document
+        .getElementById("executive-summary-card")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    try {
+      setIsLoadingSummary(true);
+      setSummaryError(null);
+      setIsSummaryDismissed(false);
+
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          content: displayMarkdown || activeMarkdown,
+          title: recipeTitle || (routeDetected === "chef" ? "Dorm Recipe" : "Untangled Notes"),
+          routeDetected,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate executive summary.");
+      }
+
+      setSummaryData({
+        overview: data.overview,
+        bullets: data.bullets || [],
+        markdown: data.markdown,
+      });
+
+      setTimeout(() => {
+        document
+          .getElementById("executive-summary-card")
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 100);
+    } catch (err: any) {
+      setSummaryError(err.message || "Failed to generate executive summary.");
+    } finally {
+      setIsLoadingSummary(false);
     }
   };
 
@@ -642,6 +769,53 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+
+          {/* Edit Markdown Mode Button */}
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              isEditing
+                ? "bg-[#ec4899] text-white border-[#ec4899]"
+                : isManuallyEdited
+                ? "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 font-bold"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+            }`}
+            title={isEditing ? "View rendered output" : "Manually refine markdown notes or recipe before saving to vault"}
+          >
+            {isEditing ? (
+              <Eye className="w-3.5 h-3.5" />
+            ) : (
+              <Pencil className="w-3.5 h-3.5 text-[#ec4899]" />
+            )}
+            <span>{isEditing ? "preview" : isManuallyEdited ? "edit (refined)" : "edit markdown"}</span>
+          </button>
+
+          {/* AI Summarize Button */}
+          <button
+            onClick={handleSummarize}
+            disabled={isLoadingSummary}
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              isLoadingSummary
+                ? "bg-black/5 text-black/60 border-black/15 cursor-wait"
+                : summaryData && !isSummaryDismissed
+                ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/40 hover:bg-[#ec4899]/20"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Generate a concise bulleted executive summary of this content with AI"
+          >
+            {isLoadingSummary ? (
+              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-[#ec4899]" />
+            )}
+            <span>
+              {isLoadingSummary
+                ? "summarizing..."
+                : summaryData && !isSummaryDismissed
+                ? "summary active"
+                : "summarize"}
+            </span>
+          </button>
           
           <button
             onClick={handleReadAloud}
@@ -658,20 +832,28 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
-            title="Share with friends"
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              shared
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Send to other apps via Web Share API (WhatsApp, Messages, Slack, Apple Notes, Mail)"
           >
-            <Share2 className="w-3.5 h-3.5" />
-            {shared ? "copied!" : "share"}
+            {shared ? (
+              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+            )}
+            <span>{shared ? "shared!" : "share"}</span>
           </button>
 
           <button
-            onClick={handleEmailShare}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
-            title="Email note/recipe via mailto:"
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs"
+            title="Open all sharing & export options (WhatsApp, Telegram, Mail, Twitter, .md file)"
           >
-            <Mail className="w-3.5 h-3.5 text-[#ec4899]" />
-            <span>Share</span>
+            <ExternalLink className="w-3.5 h-3.5 text-black/60" />
+            <span className="hidden sm:inline">send options</span>
           </button>
 
           <button
@@ -763,7 +945,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
           {routeDetected === "notes" && (
             <button
-              onClick={() => onGenerateFlashcards(markdown)}
+              onClick={() => onGenerateFlashcards(activeMarkdown)}
               className="flex items-center gap-1.5 bg-[#ec4899] hover:bg-[#db2777] text-white border border-[#ec4899] px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
             >
               <Layers className="w-3.5 h-3.5" /> flashcards
@@ -780,7 +962,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           </button>
 
           <button
-            onClick={() => onSaveToHistory(markdown, routeDetected, selectedTags)}
+            onClick={() => onSaveToHistory(activeMarkdown, routeDetected, selectedTags)}
             disabled={isSaved}
             className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
               isSaved
@@ -799,9 +981,51 @@ export const OutputView: React.FC<OutputViewProps> = ({
       <NotionExportModal
         isOpen={isNotionModalOpen}
         onClose={() => setIsNotionModalOpen(false)}
-        markdown={markdown}
+        markdown={activeMarkdown}
         routeDetected={routeDetected}
       />
+
+      {/* WEB SHARE MODAL */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        options={sharePayloadOptions}
+      />
+
+      {/* SHARE SUCCESS TOAST */}
+      {shareToast && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="mb-4 p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-2xs"
+        >
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+            <span>{shareToast}</span>
+          </div>
+          <button
+            onClick={() => setShareToast(null)}
+            className="text-emerald-700 hover:text-emerald-900 text-xs underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </motion.div>
+      )}
+
+      {/* EXECUTIVE SUMMARY CARD */}
+      {(!isSummaryDismissed && (summaryData || isLoadingSummary || summaryError)) && (
+        <ExecutiveSummaryCard
+          summary={summaryData}
+          isLoading={isLoadingSummary}
+          error={summaryError}
+          onRegenerate={() => {
+            setSummaryData(null);
+            handleSummarize();
+          }}
+          onDismiss={() => setIsSummaryDismissed(true)}
+        />
+      )}
 
       {/* CATEGORIZATION TAGS BAR */}
       <div className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
@@ -990,9 +1214,55 @@ export const OutputView: React.FC<OutputViewProps> = ({
         </div>
       )}
 
+      {/* MANUAL EDIT MODE WORKSPACE */}
+      {isEditing && (
+        <MarkdownEditor
+          value={activeMarkdown}
+          onChange={handleMarkdownChange}
+          originalValue={markdown}
+          onSaveToVault={() => onSaveToHistory(activeMarkdown, routeDetected, selectedTags)}
+          isSaved={isSaved}
+          onClose={() => setIsEditing(false)}
+          routeDetected={routeDetected}
+          renderPreview={(content) => (
+            <div className="prose max-w-none text-black dark:text-white text-sm leading-relaxed">
+              <Markdown>{content}</Markdown>
+            </div>
+          )}
+        />
+      )}
+
+      {/* REFINEMENT NOTICE (when edited but not currently in full edit view) */}
+      {!isEditing && isManuallyEdited && (
+        <div className="mb-5 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Pencil className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="font-semibold">Manual refinements active.</span>
+            <span className="text-amber-700 dark:text-amber-400 hidden sm:inline">• Saving now will store your refined content in the vault</span>
+          </div>
+          <div className="flex items-center gap-2 font-medium">
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="underline hover:no-underline font-bold text-amber-950 dark:text-amber-100 cursor-pointer"
+            >
+              Resume editing
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => handleMarkdownChange(markdown)}
+              className="text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 underline hover:no-underline cursor-pointer"
+            >
+              Revert to original
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING & STAGGERED REVEAL ANIMATIONS */}
       <motion.div
-        key={`${markdown.slice(0, 50)}-servings-${currentServings}`}
+        key={`${activeMarkdown.slice(0, 50)}-servings-${currentServings}`}
         variants={markdownContainerVariants}
         initial="hidden"
         animate="visible"

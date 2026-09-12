@@ -26,6 +26,12 @@ export interface Flashcard {
   tag: string;
 }
 
+export interface ExecutiveSummary {
+  overview?: string;
+  bullets: string[];
+  markdown?: string;
+}
+
 export interface IngredientNutrition {
   name: string;
   amount?: string;

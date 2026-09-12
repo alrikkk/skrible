@@ -16,7 +16,10 @@ import {
   Tag,
   Plus,
   Filter,
+  Share2,
 } from "lucide-react";
+import { isWebShareSupported, shareViaWebShare, SharePayloadOptions } from "../utils/webShare";
+import { ShareModal } from "./ShareModal";
 
 interface HistoryDrawerProps {
   history: UntangleHistoryItem[];
@@ -56,6 +59,28 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
   // Bulk tag modal state
   const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState("");
+
+  // Share modal state for history item
+  const [sharingItem, setSharingItem] = useState<UntangleHistoryItem | null>(null);
+
+  const handleShareItem = async (item: UntangleHistoryItem) => {
+    const firstLine = item.outputMarkdown.split("\n")[0] || "";
+    const title =
+      firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() || "Saved Untangle";
+    const shareOptions: SharePayloadOptions = {
+      title,
+      markdown: item.outputMarkdown,
+      routeDetected: item.routeDetected,
+      url: typeof window !== "undefined" ? window.location.href : "",
+    };
+
+    if (isWebShareSupported()) {
+      const res = await shareViaWebShare(shareOptions);
+      if (res.success || res.method === "aborted") return;
+    }
+
+    setSharingItem(item);
+  };
 
   // Extract all unique tags across history
   const allUniqueTags = useMemo(() => {
@@ -726,16 +751,31 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                         VIEW UNTANGLE <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
                       </button>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteHistory(item.id);
-                        }}
-                        className="bg-[#FF6B6B] hover:bg-red-400 text-black border border-black p-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
-                        title="Delete item"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 stroke-[3]" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShareItem(item);
+                          }}
+                          className="bg-white hover:bg-black/5 text-black border border-black px-2 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex items-center gap-1"
+                          title="Send to other apps via Web Share API"
+                        >
+                          <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+                          <span className="text-[10px] font-bold">SHARE</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteHistory(item.id);
+                          }}
+                          className="bg-[#FF6B6B] hover:bg-red-400 text-black border border-black p-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                          title="Delete item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 stroke-[3]" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -759,6 +799,24 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      {sharingItem && (
+        <ShareModal
+          isOpen={Boolean(sharingItem)}
+          onClose={() => setSharingItem(null)}
+          options={{
+            title:
+              (sharingItem.outputMarkdown.split("\n")[0] || "").replace(
+                /^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/,
+                ""
+              ).trim() || "Saved Untangle",
+            markdown: sharingItem.outputMarkdown,
+            routeDetected: sharingItem.routeDetected,
+            url: typeof window !== "undefined" ? window.location.href : "",
+          }}
+        />
+      )}
     </div>
   );
 };

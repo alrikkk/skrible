@@ -11,6 +11,7 @@ import {
   Trash2,
   Share2,
 } from "lucide-react";
+import { isWebShareSupported } from "../utils/webShare";
 
 const checklistContainerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -108,7 +109,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
   const [items, setItems] = useState<GroceryItem[]>([]);
   const [filter, setFilter] = useState<"all" | "missing" | "ready">("all");
   const [newItemText, setNewItemText] = useState("");
-  const [copiedMode, setCopiedMode] = useState<"needed" | "all" | null>(null);
+  const [copiedMode, setCopiedMode] = useState<"needed" | "all" | "shared" | null>(null);
 
   // Synchronize when extracted recipe ingredients change (preserving checked state)
   useEffect(() => {
@@ -203,6 +204,52 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
     navigator.clipboard.writeText(fullText);
     setCopiedMode(onlyNeeded ? "needed" : "all");
     setTimeout(() => setCopiedMode(null), 2200);
+  };
+
+  const handleShareListViaWebShare = async (onlyNeeded: boolean) => {
+    const targetItems = onlyNeeded ? items.filter((i) => !i.checked) : items;
+    if (targetItems.length === 0) return;
+
+    const titlePrefix = recipeTitle
+      ? `🛒 Grocery List for ${recipeTitle}`
+      : "🛒 Dorm Recipe Grocery List";
+
+    const header = onlyNeeded
+      ? `${titlePrefix} (${targetItems.length} items to buy):`
+      : `${titlePrefix} (${targetItems.length} items):`;
+
+    const formattedLines = targetItems.map((item) => {
+      const checkMark = item.checked ? "✅" : "⬜";
+      const price = item.priceFormatted ? ` — ${item.priceFormatted}` : "";
+      const note = item.note ? ` (${item.note})` : "";
+      return `${checkMark} ${item.name}${price}${note}`;
+    });
+
+    const fullText = `${header}\n\n${formattedLines.join("\n")}\n\nCreated with Skrible`;
+
+    if (isWebShareSupported()) {
+      try {
+        await navigator.share({
+          title: titlePrefix,
+          text: fullText,
+          url: window.location.href,
+        });
+        setCopiedMode("shared");
+        setTimeout(() => setCopiedMode(null), 2500);
+        return;
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+      }
+    }
+
+    // Fallback: clipboard
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopiedMode("shared");
+      setTimeout(() => setCopiedMode(null), 2500);
+    } catch {
+      // ignore
+    }
   };
 
   if (!items || items.length === 0) return null;
@@ -378,8 +425,31 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
               </>
             ) : (
               <>
-                <Share2 className="w-3.5 h-3.5 text-black/70" />
+                <Copy className="w-3.5 h-3.5 text-black/70" />
                 <span>Copy All</span>
+              </>
+            )}
+          </button>
+
+          {/* Share via Web Share API */}
+          <button
+            onClick={() => handleShareListViaWebShare(true)}
+            className={`flex items-center gap-1.5 border px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              copiedMode === "shared"
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Send missing groceries directly to roommates via WhatsApp, Messages, Slack, or Notes"
+          >
+            {copiedMode === "shared" ? (
+              <>
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Shared!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>Share To-Buy</span>
               </>
             )}
           </button>

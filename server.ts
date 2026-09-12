@@ -592,6 +592,78 @@ ${markdownNote}`;
   }
 });
 
+// Executive Summary Endpoint
+app.post("/api/summarize", async (req, res) => {
+  try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
+    const { content, title, routeDetected } = req.body;
+    if (!content || typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ error: "Content is required for summarization." });
+    }
+
+    const ai = getGenAI();
+    const prompt = `You are an elite executive synthesizer and cognitive assistant.
+Analyze the following ${routeDetected === "chef" ? "recipe and meal plan" : "study notes and document"} and distill it into a high-impact, concise bulleted executive summary.
+
+Title: ${title || "Untitled"}
+Content:
+${content.slice(0, 15000)}
+
+Guidelines:
+1. Provide a crisp 1-sentence executive overview summarizing the primary essence.
+2. Provide 3 to 6 high-density bullet points that capture the most critical takeaways, key steps, key numbers, ingredients/actions, or takeaways.
+3. Use bold formatting on key terms and metrics (e.g., **Key Action**: details, **Budget & Servings**: details, **Core Concept**: details).
+4. Strictly NO fluff, no conversational filler ("Here is a summary", "In conclusion"), and keep each bullet direct and punchy.
+5. Return valid JSON strictly matching this schema:
+{
+  "overview": "Crisp single-sentence high-level overview.",
+  "bullets": [
+    "**Key Finding/Step**: Concise, actionable takeaway.",
+    "**Metric/Core Concept**: Direct explanation with key numbers or terms."
+  ],
+  "markdown": "Neat markdown representation combining overview and bullet points."
+}`;
+
+    const response = await generateContentWithRetry(ai, {
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2,
+      },
+    }, ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]);
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(response.text || "{}");
+    } catch {
+      const cleaned = (response.text || "").replace(/^```(?:json)?\s*/, "").replace(/```$/, "").trim();
+      parsed = JSON.parse(cleaned);
+    }
+
+    const bullets: string[] = Array.isArray(parsed.bullets) ? parsed.bullets : [];
+    const overview: string = typeof parsed.overview === "string" ? parsed.overview : "";
+    const markdown: string = typeof parsed.markdown === "string" && parsed.markdown.trim()
+      ? parsed.markdown
+      : `${overview ? `${overview}\n\n` : ""}${bullets.map((b) => `- ${b}`).join("\n")}`;
+
+    // Record usage
+    await recordUsageLog(auth, "/api/summarize");
+
+    res.json({
+      overview,
+      bullets,
+      markdown,
+    });
+  } catch (error: any) {
+    console.error("Error in /api/summarize:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate executive summary." });
+  }
+});
+
 // Nutrition & Macro Estimation Endpoint
 app.post("/api/nutrition", async (req, res) => {
   try {

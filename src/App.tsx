@@ -571,6 +571,10 @@ export default function App() {
                 onSaveToHistory={handleSaveToHistory}
                 isSaved={isSaved}
                 onNewUntangle={handleReset}
+                onUpdateMarkdown={(updated) => {
+                  setOutputMarkdown(updated);
+                  setIsSaved(false);
+                }}
               />
             )}
           </main>
