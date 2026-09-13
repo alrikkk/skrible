@@ -53,6 +53,7 @@ import {
   Receipt,
   Utensils,
   Clock,
+  BookOpen,
   ShoppingCart,
   HeartPulse,
   Timer,
@@ -634,6 +635,50 @@ export const OutputView: React.FC<OutputViewProps> = ({
     ]
   );
 
+  // Word count and estimated reading time complexity statistics
+  const readingStats = useMemo(() => {
+    const rawText = (displayMarkdown || activeMarkdown || "").trim();
+    if (!rawText) {
+      return {
+        words: 0,
+        readingTime: "< 1 min read",
+        minutes: 0,
+        complexity: "Quick",
+      };
+    }
+
+    // Strip markdown formatting symbols for accurate readable word counting
+    const cleanText = rawText
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/!\[.*?\]\(.*?\)/g, " ")
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/^[#*>\-\d.]+\s+/gm, " ")
+      .replace(/[*_~`]/g, " ")
+      .trim();
+
+    const matchedWords = cleanText.match(/\b[\w'-]+\b/g);
+    const words = matchedWords ? matchedWords.length : cleanText.split(/\s+/).filter(Boolean).length;
+
+    // Standard reading speed for study notes and recipes: ~200 wpm
+    const minutes = Math.max(1, Math.round(words / 200));
+    const readingTime = words < 60 ? "< 1 min read" : `${minutes} min read`;
+
+    let complexity: "Bite-sized" | "Standard" | "In-depth" = "Bite-sized";
+    if (words > 600) {
+      complexity = "In-depth";
+    } else if (words >= 200) {
+      complexity = "Standard";
+    }
+
+    return {
+      words,
+      readingTime,
+      minutes,
+      complexity,
+    };
+  }, [displayMarkdown, activeMarkdown]);
+
   // Web Share API to send notes or recipes to other apps
   const handleShare = async () => {
     // 1. If Web Share API is available in current browser context, invoke native sheet
@@ -755,20 +800,47 @@ export const OutputView: React.FC<OutputViewProps> = ({
     >
       
       {/* HEADER TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6">
         
-        <div className="flex items-center gap-2">
-          <span className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5 shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>{routeDetected === "chef" ? "dorm chef recipe" : "untangled notes"}</span>
           </span>
-          <span className="text-xs font-mono text-black/50 uppercase">
+
+          {/* Word Count & Estimated Reading Time Indicator */}
+          <div
+            id="reading-stats-indicator"
+            className="flex items-center gap-2 bg-[#FAF8F5] border border-black/10 rounded-full px-3 py-1 text-xs text-black/75 font-medium shadow-2xs"
+            title={`${readingStats.words.toLocaleString()} words • ${readingStats.readingTime} (based on 200 wpm) • ${readingStats.complexity} complexity`}
+          >
+            <span className="flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-black/50 shrink-0" />
+              <span className="font-semibold text-black">{readingStats.words.toLocaleString()}</span>
+              <span className="text-black/60">{readingStats.words === 1 ? "word" : "words"}</span>
+            </span>
+
+            <span className="text-black/25 select-none font-bold">•</span>
+
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+              <span className="font-semibold text-black">{readingStats.readingTime}</span>
+            </span>
+
+            <span className="text-black/25 select-none font-bold hidden sm:inline">•</span>
+
+            <span className="hidden sm:inline-block text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-black/5 text-black/60 font-semibold">
+              {readingStats.complexity}
+            </span>
+          </div>
+
+          <span className="text-xs font-mono text-black/40 uppercase hidden xl:inline">
             zero-fluff data
           </span>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
 
           {/* Edit Markdown Mode Button */}
           <button
