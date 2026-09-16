@@ -1,5 +1,7 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -360,6 +362,135 @@ app.get("/api/config", (_req, res) => {
     supabaseUrl: process.env.SUPABASE_URL || "",
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
   });
+});
+
+// ==========================================
+// PUBLIC NOTE SHARING STORE & API ENDPOINTS
+// ==========================================
+
+interface SharedNote {
+  id: string;
+  title: string;
+  content: string;
+  routeDetected: "notes" | "chef";
+  budget?: string;
+  createdAt: string;
+  views: number;
+}
+
+const SHARED_NOTES_DIR = path.join(process.cwd(), "data");
+const SHARED_NOTES_FILE = path.join(SHARED_NOTES_DIR, "shared_notes.json");
+const sharedNotesMap = new Map<string, SharedNote>();
+
+function loadSharedNotesFromDisk() {
+  try {
+    if (fs.existsSync(SHARED_NOTES_FILE)) {
+      const raw = fs.readFileSync(SHARED_NOTES_FILE, "utf-8");
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (item && item.id) {
+            sharedNotesMap.set(item.id, item);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load shared_notes.json from disk:", err);
+  }
+}
+
+function saveSharedNotesToDisk() {
+  try {
+    if (!fs.existsSync(SHARED_NOTES_DIR)) {
+      fs.mkdirSync(SHARED_NOTES_DIR, { recursive: true });
+    }
+    const list = Array.from(sharedNotesMap.values());
+    fs.writeFileSync(SHARED_NOTES_FILE, JSON.stringify(list, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Failed to persist shared_notes.json to disk:", err);
+  }
+}
+
+// Pre-load existing shared notes
+loadSharedNotesFromDisk();
+
+// POST /api/share-note - Generate a unique public URL for the current untangled note
+app.post("/api/share-note", async (req, res) => {
+  try {
+    const { title, content, routeDetected = "notes", budget = "" } = req.body;
+
+    if (!content || typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ error: "Content is required to share a note." });
+    }
+
+    // Generate unique short public share ID (e.g., sn_a4b9c1d2)
+    const shareId = `sn_${crypto.randomBytes(4).toString("hex")}`;
+    const cleanTitle = (title || (routeDetected === "chef" ? "Dorm Chef Recipe" : "Untangled Notes")).trim();
+
+    const note: SharedNote = {
+      id: shareId,
+      title: cleanTitle,
+      content: content.trim(),
+      routeDetected: routeDetected === "chef" ? "chef" : "notes",
+      budget: typeof budget === "string" ? budget : "",
+      createdAt: new Date().toISOString(),
+      views: 0,
+    };
+
+    sharedNotesMap.set(shareId, note);
+    saveSharedNotesToDisk();
+
+    // Determine public base URL from request headers or environment
+    const forwardedProto = req.get("x-forwarded-proto");
+    const forwardedHost = req.get("x-forwarded-host");
+    const host = forwardedHost || req.get("host") || "localhost:3000";
+    const proto = forwardedProto || (req.secure ? "https" : "http");
+    const origin = req.get("origin") || req.get("referer")?.replace(/\/$/, "") || `${proto}://${host}`;
+
+    // Prefer APP_URL from environment if available and valid
+    let baseUrl = origin;
+    if (process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL") {
+      baseUrl = process.env.APP_URL.replace(/\/$/, "");
+    }
+
+    const shareUrl = `${baseUrl}/?share=${shareId}`;
+
+    return res.json({
+      success: true,
+      shareId,
+      shareUrl,
+      title: cleanTitle,
+      createdAt: note.createdAt,
+    });
+  } catch (err: any) {
+    console.error("Error generating share URL:", err);
+    return res.status(500).json({ error: err.message || "Failed to generate share URL." });
+  }
+});
+
+// GET /api/share-note/:id - Retrieve public shared note for peers
+app.get("/api/share-note/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const note = sharedNotesMap.get(id);
+
+    if (!note) {
+      return res.status(404).json({ error: "Shared note not found or link has expired." });
+    }
+
+    // Increment view counter and save
+    note.views = (note.views || 0) + 1;
+    saveSharedNotesToDisk();
+
+    return res.json({
+      success: true,
+      note,
+    });
+  } catch (err: any) {
+    console.error("Error retrieving shared note:", err);
+    return res.status(500).json({ error: err.message || "Failed to retrieve shared note." });
+  }
 });
 
 // Helper to initialize GenAI client

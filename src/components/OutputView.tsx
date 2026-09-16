@@ -61,6 +61,8 @@ import {
   Flame,
   Pencil,
   Eye,
+  Link2,
+  Globe,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -246,6 +248,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [shareToast, setShareToast] = useState<string | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionInfo | null>(null);
   const [activeCookingTimer, setActiveCookingTimer] = useState<ActiveTimerInfo | null>(null);
+  const [publicShareUrl, setPublicShareUrl] = useState<string | null>(null);
+  const [isGeneratingShareUrl, setIsGeneratingShareUrl] = useState<boolean>(false);
 
   // Manual markdown refinement state
   const [editedMarkdown, setEditedMarkdown] = useState<string>(markdown);
@@ -255,6 +259,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   useEffect(() => {
     setEditedMarkdown(markdown);
     setIsEditing(false);
+    setPublicShareUrl(null);
   }, [markdown]);
 
   const handleMarkdownChange = (newVal: string) => {
@@ -606,7 +611,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       title: recipeTitle,
       markdown: displayMarkdown,
       routeDetected,
-      url: typeof window !== "undefined" ? window.location.href : "",
+      url: publicShareUrl || (typeof window !== "undefined" ? window.location.href : ""),
       recipeStats: chefStats
         ? {
             costPerServing: chefStats.costPerServing,
@@ -628,6 +633,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       recipeTitle,
       displayMarkdown,
       routeDetected,
+      publicShareUrl,
       chefStats,
       displayTotalCost,
       currentServings,
@@ -679,26 +685,49 @@ export const OutputView: React.FC<OutputViewProps> = ({
     };
   }, [displayMarkdown, activeMarkdown]);
 
-  // Web Share API to send notes or recipes to other apps
+  // Generate unique public URL and open share interface
   const handleShare = async () => {
-    // 1. If Web Share API is available in current browser context, invoke native sheet
-    if (isWebShareSupported()) {
-      const result = await shareViaWebShare(sharePayloadOptions);
-      if (result.success) {
-        setShared(true);
-        setShareToast(result.message || "Sent to app!");
-        setTimeout(() => {
-          setShared(false);
-          setShareToast(null);
-        }, 3000);
-        return;
-      }
-      if (result.method === "aborted") {
-        return;
+    let activeUrl = publicShareUrl;
+
+    if (!activeUrl) {
+      try {
+        setIsGeneratingShareUrl(true);
+        const res = await fetch("/api/share-note", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: recipeTitle,
+            content: displayMarkdown || activeMarkdown,
+            routeDetected,
+            budget,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to generate share URL.");
+        }
+
+        activeUrl = data.shareUrl;
+        setPublicShareUrl(data.shareUrl);
+
+        // Auto copy to clipboard for convenience
+        try {
+          await navigator.clipboard.writeText(data.shareUrl);
+          setShared(true);
+          setShareToast("Unique public URL generated & copied to clipboard! Ready to send to peers.");
+          setTimeout(() => setShared(false), 3000);
+        } catch {
+          setShareToast("Unique public URL generated! Ready to share with study peers.");
+        }
+      } catch (err: any) {
+        console.error("Failed to generate share URL:", err);
+      } finally {
+        setIsGeneratingShareUrl(false);
       }
     }
 
-    // 2. If Web Share is not supported or blocked in iframe, open full ShareModal
+    // Open the full ShareModal where the unique public URL is prominently presented
     setIsShareModalOpen(true);
   };
 
@@ -904,20 +933,39 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
           <button
             onClick={handleShare}
+            disabled={isGeneratingShareUrl}
             className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               shared
                 ? "bg-emerald-600 text-white border-emerald-600"
                 : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
             }`}
-            title="Send to other apps via Web Share API (WhatsApp, Messages, Slack, Apple Notes, Mail)"
+            title="Generate unique public URL to share note with study peers"
           >
-            {shared ? (
+            {isGeneratingShareUrl ? (
+              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+            ) : shared ? (
               <Check className="w-3.5 h-3.5 stroke-[2.5]" />
             ) : (
               <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
             )}
-            <span>{shared ? "shared!" : "share"}</span>
+            <span>{isGeneratingShareUrl ? "generating link..." : shared ? "link copied!" : "share note"}</span>
           </button>
+
+          {publicShareUrl && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(publicShareUrl);
+                setShared(true);
+                setShareToast("Unique public URL copied to clipboard!");
+                setTimeout(() => setShared(false), 2500);
+              }}
+              className="flex items-center gap-1.5 bg-[#ec4899]/10 hover:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
+              title="Copy active public URL to clipboard"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              <span>copy link</span>
+            </button>
+          )}
 
           <button
             onClick={() => setIsShareModalOpen(true)}

@@ -15,6 +15,9 @@ import {
   CheckCheck,
   FileText,
   MessageSquare,
+  Globe,
+  Users,
+  Link2,
 } from "lucide-react";
 import {
   isWebShareSupported,
@@ -143,6 +146,67 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
 
           {/* Modal Content */}
           <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+            {/* Premier Action: Unique Public Link for Study Peers */}
+            <div className="bg-white border-2 border-black rounded-xl p-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-[#ec4899]" />
+                  <span>Unique Public Link for Study Peers</span>
+                </span>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-700 stroke-[3]" />
+                  <span>Public & Ready</span>
+                </span>
+              </div>
+
+              <p className="text-xs text-black/75 mb-3 leading-relaxed">
+                Study peers can open this unique URL directly to read your untangled note, study takeaways, cram flashcards, or save a copy to their own vault.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <div className="flex-1 w-full flex items-center bg-[#FAF8F5] border-2 border-black rounded-xl px-3 py-2 text-xs font-mono text-black overflow-hidden shadow-2xs">
+                  <Link2 className="w-3.5 h-3.5 text-black/40 shrink-0 mr-2" />
+                  <span className="truncate select-all font-semibold" title={shareUrl}>
+                    {shareUrl}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5 active:scale-95 ${
+                      copiedLink
+                        ? "bg-emerald-500 text-white border-black"
+                        : "bg-[#ec4899] hover:bg-[#db2777] text-white"
+                    }`}
+                  >
+                    {copiedLink ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Public Link</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 bg-white hover:bg-black/5 text-black border-2 border-black rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center cursor-pointer active:scale-95"
+                    title="Open public link in new tab to test peer experience"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+
             {/* Primary Action: Native Device Share Sheet (Web Share API) */}
             <div className="bg-[#FAF8F5] border border-black/15 rounded-xl p-4 shadow-2xs">
               <div className="flex items-center justify-between gap-2 mb-2">

@@ -9,7 +9,7 @@ import { LoginScreen, UserProfile } from "./components/LoginScreen";
 import { ScribbleLogo } from "./components/ScribbleLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample } from "./types";
-import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut } from "lucide-react";
+import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import { supabase, getAuthHeaders } from "./lib/supabaseClient";
 
@@ -82,6 +82,65 @@ export default function App() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState<boolean>(false);
   const [isLoadingFlashcards, setIsLoadingFlashcards] = useState<boolean>(false);
+
+  // Peer Shared Note State
+  const [isLoadingSharedNote, setIsLoadingSharedNote] = useState<boolean>(false);
+  const [sharedNoteError, setSharedNoteError] = useState<string | null>(null);
+  const [sharedNoteMeta, setSharedNoteMeta] = useState<{
+    id: string;
+    title: string;
+    views?: number;
+    createdAt?: string;
+  } | null>(null);
+
+  // Auto-detect and fetch shared note from URL (?share=id or ?note=id or /share/id)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryShareId = urlParams.get("share") || urlParams.get("note");
+    const pathMatch = window.location.pathname.match(/^\/share\/([a-zA-Z0-9_-]+)/);
+    const shareId = queryShareId || (pathMatch ? pathMatch[1] : null);
+
+    if (!shareId) return;
+
+    const loadSharedNote = async () => {
+      try {
+        setIsLoadingSharedNote(true);
+        setSharedNoteError(null);
+        const res = await fetch(`/api/share-note/${encodeURIComponent(shareId)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Shared note not found or link has expired.");
+        }
+
+        if (data.note) {
+          setOutputMarkdown(data.note.content);
+          setRouteDetected(data.note.routeDetected || "notes");
+          setPromptText(data.note.title);
+          if (data.note.budget) {
+            setBudget(data.note.budget);
+          }
+          setCurrentPage("workspace");
+          setIsSaved(false);
+          setSharedNoteMeta({
+            id: data.note.id,
+            title: data.note.title,
+            views: data.note.views,
+            createdAt: data.note.createdAt,
+          });
+        }
+      } catch (err: any) {
+        console.error("Failed to load peer shared note:", err);
+        setSharedNoteError(err.message || "Could not load shared note.");
+      } finally {
+        setIsLoadingSharedNote(false);
+      }
+    };
+
+    loadSharedNote();
+  }, []);
 
   // Load history from Supabase for logged-in users, or localStorage for guest users
   useEffect(() => {
@@ -545,6 +604,79 @@ export default function App() {
           </header>
 
           <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 transition-all duration-200 ease-out">
+            {/* Peer Shared Note Loading State */}
+            {isLoadingSharedNote && (
+              <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-5 mb-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3">
+                <div className="w-5 h-5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                <span className="text-xs font-bold text-black dark:text-white uppercase tracking-wider font-mono">
+                  Loading peer shared untangled note...
+                </span>
+              </div>
+            )}
+
+            {/* Peer Shared Note Error Alert */}
+            {sharedNoteError && (
+              <div className="bg-amber-50 border-2 border-amber-500 rounded-2xl p-4 mb-6 text-amber-950 flex items-center justify-between shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                <div className="text-xs font-medium">
+                  <strong>Notice:</strong> {sharedNoteError}
+                </div>
+                <button
+                  onClick={() => setSharedNoteError(null)}
+                  className="text-xs font-bold text-amber-800 hover:text-amber-950 underline ml-3 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Peer Shared Note Active Banner */}
+            {sharedNoteMeta && outputMarkdown && (
+              <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#ec4899]/15 border border-[#ec4899]/30 text-[#ec4899] flex items-center justify-center shrink-0">
+                    <Share2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#ec4899] text-white">
+                        Peer Shared Note
+                      </span>
+                      {sharedNoteMeta.views ? (
+                        <span className="text-[11px] text-black/50 dark:text-white/50 font-medium">
+                          {sharedNoteMeta.views} {sharedNoteMeta.views === 1 ? "view" : "views"}
+                        </span>
+                      ) : null}
+                    </div>
+                    <h3 className="font-bold text-sm text-black dark:text-white mt-0.5">
+                      Viewing: {sharedNoteMeta.title}
+                    </h3>
+                    <p className="text-xs text-black/60 dark:text-white/60">
+                      Shared via unique public URL • Ready to study, practice flashcards, or save
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    onClick={() => handleSaveToHistory(outputMarkdown, routeDetected)}
+                    className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span>Save to My Vault</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSharedNoteMeta(null);
+                      handleReset();
+                    }}
+                    className="flex-1 sm:flex-none bg-white hover:bg-black/5 text-black text-xs font-semibold px-3 py-2 rounded-xl border border-black/20 hover:border-black flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Note</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Input Panel */}
             <InputPanel
               route={route}
