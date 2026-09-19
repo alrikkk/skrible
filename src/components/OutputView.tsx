@@ -63,6 +63,7 @@ import {
   Eye,
   Link2,
   Globe,
+  Printer,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -862,9 +863,30 @@ export const OutputView: React.FC<OutputViewProps> = ({
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-20"
     >
+      {/* PRINT-SPECIFIC CLEAN DOCUMENT HEADER */}
+      <div className="hidden print:block print-document-header">
+        <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+          <div>
+            <div className="text-2xl font-extrabold tracking-tight font-sans lowercase text-black">
+              skrible
+            </div>
+            <div className="text-xs text-black/60 font-mono mt-0.5">
+              / {routeDetected === "chef" ? "dorm chef recipe & budget plan" : "untangled study notes"}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs font-mono font-medium text-black/80">
+              {readingStats.words.toLocaleString()} words • {readingStats.readingTime} read
+            </div>
+            <div className="text-[10px] font-mono text-black/50 mt-0.5">
+              printed from skrible
+            </div>
+          </div>
+        </div>
+      </div>
       
       {/* HEADER TOOLBAR */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6">
+      <div id="output-toolbar" className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6 print:hidden">
         
         <div className="flex flex-wrap items-center gap-2">
           <span className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5 shadow-2xs">
@@ -1031,6 +1053,16 @@ export const OutputView: React.FC<OutputViewProps> = ({
             {copied ? "copied!" : "copy md"}
           </button>
 
+          {/* Print Clean Document Button */}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs hover:border-[#ec4899]"
+            title="Print clean document or save to PDF (Ctrl+P / Cmd+P)"
+          >
+            <Printer className="w-3.5 h-3.5 text-black/60" />
+            <span>print</span>
+          </button>
+
           <button
             onClick={handleTTS}
             disabled={isLoadingAudio}
@@ -1195,7 +1227,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       )}
 
       {/* CATEGORIZATION TAGS BAR */}
-      <div className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
+      <div id="category-tags-bar" className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-black/70 mr-1 shrink-0">
           <Tag className="w-3.5 h-3.5 text-[#ec4899]" />
           <span>Categorize:</span>
@@ -1360,7 +1392,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
       {/* SERVING SIZE MULTIPLIER & INGREDIENT RECALCULATOR */}
       {(routeDetected === "chef" || ingredientsList.length > 0) && (
-        <div id="recipe-servings-bar" className="mb-6 scroll-mt-24">
+        <div id="recipe-servings-bar" className="mb-6 scroll-mt-24 print:hidden">
           <ServingMultiplierBar
             baseServings={baseServings}
             currentServings={currentServings}

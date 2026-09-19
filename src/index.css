@@ -159,4 +159,221 @@ html.dark textarea::placeholder {
   color: rgba(243, 244, 246, 0.4) !important;
 }
 
+/* ==========================================================================
+   Print-Specific Stylesheet for Clean, Distraction-Free Study Notes & Recipes
+   ========================================================================== */
+@media print {
+  /* Hide non-printable app UI: Navigation, input panel, drawers, modals, action toolbars */
+  header,
+  footer,
+  nav,
+  #input-panel-section,
+  #hero-header,
+  #history-drawer,
+  #flashcards-modal,
+  #share-modal,
+  #notion-modal,
+  #login-modal,
+  #output-toolbar,
+  #category-tags-bar,
+  #recipe-servings-bar,
+  .print\:hidden,
+  button,
+  input,
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  /* Standard page margins and layout */
+  @page {
+    size: auto;
+    margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+  }
+
+  /* Pure white background and deep dark ink text */
+  html,
+  body,
+  html.dark body,
+  body.dark {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset positioning, animations, shadows, and transforms for paper */
+  * {
+    position: static !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  /* Unconstrain wrapper layout so paper width is used cleanly */
+  main,
+  .max-w-5xl,
+  .max-w-4xl,
+  .max-w-7xl,
+  .max-w-3xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Clean OutputView Container */
+  #untangled-output-container {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  /* Print document header */
+  .print-document-header {
+    display: block !important;
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 8pt !important;
+    margin-bottom: 16pt !important;
+  }
+
+  /* High contrast, legible typography on white paper */
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    margin-top: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  h1 {
+    font-size: 20pt !important;
+    font-weight: 800 !important;
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 6pt !important;
+    margin-top: 0 !important;
+  }
+
+  h2 {
+    font-size: 14pt !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    padding-bottom: 3pt !important;
+    margin-top: 1.5rem !important;
+  }
+
+  h3 {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+  }
+
+  p, li, span, div {
+    color: #1f2937 !important;
+  }
+
+  p {
+    font-size: 10.5pt !important;
+    line-height: 1.6 !important;
+    margin: 0.5rem 0 !important;
+  }
+
+  /* Lists formatting */
+  ul, ol {
+    margin: 0.5rem 0 1rem 0 !important;
+    padding-left: 1.5rem !important;
+  }
+
+  ul {
+    list-style-type: disc !important;
+  }
+
+  ol {
+    list-style-type: decimal !important;
+  }
+
+  li {
+    font-size: 10.5pt !important;
+    line-height: 1.5 !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  /* Clean bold highlights - remove neon background on paper */
+  strong, b {
+    color: #000000 !important;
+    background: transparent !important;
+    font-weight: 700 !important;
+    padding: 0 !important;
+  }
+
+  /* Blockquotes */
+  blockquote {
+    border-left: 3px solid #4b5563 !important;
+    padding-left: 0.75rem !important;
+    margin: 0.75rem 0 !important;
+    font-style: italic !important;
+    color: #374151 !important;
+  }
+
+  /* Tables formatting */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 1rem 0 !important;
+  }
+
+  th, td {
+    border: 1px solid #d1d5db !important;
+    padding: 6pt 8pt !important;
+    text-align: left !important;
+    font-size: 10pt !important;
+  }
+
+  th {
+    background-color: #f3f4f6 !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+  }
+
+  /* Avoid awkward page breaks in the middle of list items, recipe steps, or cards */
+  li,
+  tr,
+  blockquote,
+  pre,
+  .break-inside-avoid,
+  [id^="recipe-step-"],
+  #recipe-grocery-list,
+  #recipe-nutrition-breakdown,
+  #recipe-cost-d3-chart {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Recipe & Nutrition cards clean borders on print */
+  #recipe-grocery-list,
+  #recipe-nutrition-breakdown,
+  #recipe-cost-d3-chart {
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    padding: 12pt !important;
+    margin-top: 1rem !important;
+    background: #ffffff !important;
+  }
+}
+
+
 

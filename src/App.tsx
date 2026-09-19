@@ -697,7 +697,7 @@ export default function App() {
 
             {/* Peer Shared Note Active Banner */}
             {sharedNoteMeta && outputMarkdown && (
-              <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#ec4899]/15 border border-[#ec4899]/30 text-[#ec4899] flex items-center justify-center shrink-0">
                     <Share2 className="w-5 h-5" />
@@ -744,20 +744,22 @@ export default function App() {
             )}
 
             {/* Input Panel */}
-            <InputPanel
-              route={route}
-              setRoute={setRoute}
-              promptText={promptText}
-              setPromptText={setPromptText}
-              budget={budget}
-              setBudget={setBudget}
-              files={files}
-              setFiles={setFiles}
-              audioAttachment={audioAttachment}
-              setAudioAttachment={setAudioAttachment}
-              onSubmit={handleUntangle}
-              isLoading={isLoading}
-            />
+            <div id="input-panel-section" className="print:hidden">
+              <InputPanel
+                route={route}
+                setRoute={setRoute}
+                promptText={promptText}
+                setPromptText={setPromptText}
+                budget={budget}
+                setBudget={setBudget}
+                files={files}
+                setFiles={setFiles}
+                audioAttachment={audioAttachment}
+                setAudioAttachment={setAudioAttachment}
+                onSubmit={handleUntangle}
+                isLoading={isLoading}
+              />
+            </div>
 
             {/* Output Section */}
             {outputMarkdown && (
