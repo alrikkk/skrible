@@ -64,6 +64,7 @@ import {
   Link2,
   Globe,
   Printer,
+  FileText,
 } from "lucide-react";
 
 interface OutputViewProps {
@@ -837,7 +838,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
       }
 
       setSummaryData({
-        overview: data.overview,
+        paragraph: data.paragraph || data.overview,
+        overview: data.overview || data.paragraph,
         bullets: data.bullets || [],
         markdown: data.markdown,
       });
@@ -1076,6 +1078,31 @@ export const OutputView: React.FC<OutputViewProps> = ({
               <Volume2 className="w-3.5 h-3.5" />
             )}
             {isPlayingAudio ? "stop audio" : "listen audio"}
+          </button>
+
+          {/* Quick One-Paragraph Summary Button */}
+          <button
+            id="quick-summary-button"
+            onClick={handleSummarize}
+            disabled={isLoadingSummary}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              summaryData && !isSummaryDismissed
+                ? "bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/40"
+                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Generate a short, one-paragraph summary of your untangled notes for quick review"
+          >
+            {isLoadingSummary ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                <span className="text-[#ec4899]">summarizing...</span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>{summaryData && !isSummaryDismissed ? "view summary" : "quick summary"}</span>
+              </>
+            )}
           </button>
 
           {(routeDetected === "chef" || ingredientsList.length > 0) && (

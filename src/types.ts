@@ -27,6 +27,7 @@ export interface Flashcard {
 }
 
 export interface ExecutiveSummary {
+  paragraph?: string;
   overview?: string;
   bullets: string[];
   markdown?: string;

@@ -821,26 +821,27 @@ app.post("/api/summarize", async (req, res) => {
     }
 
     const ai = getGenAI();
-    const prompt = `You are an elite executive synthesizer and cognitive assistant.
-Analyze the following ${routeDetected === "chef" ? "recipe and meal plan" : "study notes and document"} and distill it into a high-impact, concise bulleted executive summary.
+    const prompt = `You are an elite academic synthesizer and cognitive study assistant.
+Analyze the following ${routeDetected === "chef" ? "recipe and budget plan" : "untangled study notes and reference material"} and distill it into a short, high-yield one-paragraph summary designed specifically for quick review, followed by high-density key takeaways.
 
 Title: ${title || "Untitled"}
 Content:
 ${content.slice(0, 15000)}
 
 Guidelines:
-1. Provide a crisp 1-sentence executive overview summarizing the primary essence.
-2. Provide 3 to 6 high-density bullet points that capture the most critical takeaways, key steps, key numbers, ingredients/actions, or takeaways.
-3. Use bold formatting on key terms and metrics (e.g., **Key Action**: details, **Budget & Servings**: details, **Core Concept**: details).
-4. Strictly NO fluff, no conversational filler ("Here is a summary", "In conclusion"), and keep each bullet direct and punchy.
+1. Provide a comprehensive, cohesive, single-paragraph summary (3 to 5 clear sentences, approximately 60-100 words) that captures the core essence, central themes, crucial steps/ingredients, or fundamental concepts. It must read as a single, fluid paragraph ideal for a student reviewing right before an exam or cooking session. No line breaks inside this paragraph.
+2. Provide 3 to 5 high-density bullet points highlighting the most vital facts, formulas, step sequences, or numbers.
+3. Use bold formatting on key terms and metrics.
+4. Strictly NO fluff, no meta-chatter or filler ("In conclusion", "This document covers").
 5. Return valid JSON strictly matching this schema:
 {
-  "overview": "Crisp single-sentence high-level overview.",
+  "paragraph": "A complete, cohesive, 3-5 sentence single-paragraph summary for quick review.",
+  "overview": "Same cohesive single-paragraph summary.",
   "bullets": [
     "**Key Finding/Step**: Concise, actionable takeaway.",
     "**Metric/Core Concept**: Direct explanation with key numbers or terms."
   ],
-  "markdown": "Neat markdown representation combining overview and bullet points."
+  "markdown": "Neat markdown representation combining the one-paragraph summary and bullet points."
 }`;
 
     const response = await generateContentWithRetry(ai, {
@@ -859,16 +860,20 @@ Guidelines:
       parsed = JSON.parse(cleaned);
     }
 
+    const paragraph: string = typeof parsed.paragraph === "string" && parsed.paragraph.trim()
+      ? parsed.paragraph.trim()
+      : (typeof parsed.overview === "string" ? parsed.overview.trim() : "");
+    const overview: string = paragraph;
     const bullets: string[] = Array.isArray(parsed.bullets) ? parsed.bullets : [];
-    const overview: string = typeof parsed.overview === "string" ? parsed.overview : "";
     const markdown: string = typeof parsed.markdown === "string" && parsed.markdown.trim()
       ? parsed.markdown
-      : `${overview ? `${overview}\n\n` : ""}${bullets.map((b) => `- ${b}`).join("\n")}`;
+      : `${paragraph ? `${paragraph}\n\n` : ""}${bullets.map((b) => `- ${b}`).join("\n")}`;
 
     // Record usage
     await recordUsageLog(auth, "/api/summarize");
 
     res.json({
+      paragraph,
       overview,
       bullets,
       markdown,
