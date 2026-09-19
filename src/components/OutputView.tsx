@@ -69,6 +69,7 @@ interface OutputViewProps {
   markdown: string;
   routeDetected: "notes" | "chef";
   budget?: string;
+  isStreaming?: boolean;
   onGenerateFlashcards: (markdown: string) => void;
   onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[]) => void;
   isSaved: boolean;
@@ -231,6 +232,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   markdown,
   routeDetected,
   budget,
+  isStreaming = false,
   onGenerateFlashcards,
   onSaveToHistory,
   isSaved,
@@ -282,17 +284,21 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [isAddingCustomTag, setIsAddingCustomTag] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevStreamingRef = useRef<boolean>(false);
+  const hasAutoScrolledForNoteRef = useRef<boolean>(false);
 
-  // Initialize tags and reset nutrition data & active timer when new content arrives
+  // Initialize tags and reset nutrition data & active timer when new content arrives or streaming completes
   useEffect(() => {
-    setSelectedTags([routeDetected === "chef" ? "Recipe" : "Study Note"]);
-    setNutritionData(null);
-    setActiveCookingTimer(null);
-    setSummaryData(null);
-    setIsLoadingSummary(false);
-    setSummaryError(null);
-    setIsSummaryDismissed(false);
-  }, [markdown, routeDetected]);
+    if (!isStreaming) {
+      setSelectedTags([routeDetected === "chef" ? "Recipe" : "Study Note"]);
+      setNutritionData(null);
+      setActiveCookingTimer(null);
+      setSummaryData(null);
+      setIsLoadingSummary(false);
+      setSummaryError(null);
+      setIsSummaryDismissed(false);
+    }
+  }, [isStreaming, routeDetected]);
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -312,12 +318,41 @@ export const OutputView: React.FC<OutputViewProps> = ({
     setIsAddingCustomTag(false);
   };
 
-  // Smooth scroll into view when new markdown content is received
+  // Smooth scroll-to-view behavior that triggers automatically AFTER the AI finishes streaming the response
   useEffect(() => {
-    if (markdown && containerRef.current) {
-      containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    const wasStreaming = prevStreamingRef.current;
+    const isNowStreaming = isStreaming;
+
+    // Trigger condition 1: AI was streaming and just finished (!isStreaming && wasStreaming was true)
+    const justFinishedStreaming = wasStreaming && !isNowStreaming && Boolean(markdown.trim());
+
+    // Trigger condition 2: New markdown content was loaded without streaming (e.g. from history vault, preset, or peer share link)
+    const freshlyLoadedNonStream = !isNowStreaming && !wasStreaming && Boolean(markdown.trim()) && !hasAutoScrolledForNoteRef.current;
+
+    if (justFinishedStreaming || freshlyLoadedNonStream) {
+      hasAutoScrolledForNoteRef.current = true;
+
+      // Small timeout to allow DOM and layout calculators (charts, markdown parser) to paint completely
+      const scrollTimer = window.setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+      }, 150);
+
+      prevStreamingRef.current = isNowStreaming;
+      return () => window.clearTimeout(scrollTimer);
     }
-  }, [markdown]);
+
+    // Reset auto-scroll tracker whenever a new streaming session starts
+    if (isNowStreaming) {
+      hasAutoScrolledForNoteRef.current = false;
+    }
+
+    prevStreamingRef.current = isNowStreaming;
+  }, [isStreaming, markdown]);
 
   // Clean speech synthesis on unmount or when markdown changes
   useEffect(() => {
@@ -821,11 +856,11 @@ export const OutputView: React.FC<OutputViewProps> = ({
   return (
     <motion.div
       ref={containerRef}
-      key={markdown.slice(0, 60) + "_" + routeDetected}
+      id="untangled-output-container"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-6"
+      className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-20"
     >
       
       {/* HEADER TOOLBAR */}
@@ -833,8 +868,20 @@ export const OutputView: React.FC<OutputViewProps> = ({
         
         <div className="flex flex-wrap items-center gap-2">
           <span className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{routeDetected === "chef" ? "dorm chef recipe" : "untangled notes"}</span>
+            {isStreaming ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ec4899] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ec4899]" />
+                </span>
+                <span>streaming {routeDetected === "chef" ? "recipe..." : "notes..."}</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{routeDetected === "chef" ? "dorm chef recipe" : "untangled notes"}</span>
+              </>
+            )}
           </span>
 
           {/* Word Count & Estimated Reading Time Indicator */}
@@ -1586,6 +1633,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
         >
           {displayMarkdown}
         </Markdown>
+        {isStreaming && (
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-dashed border-black/10 text-xs text-black/60">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ec4899] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ec4899]" />
+            </span>
+            <span className="font-mono font-medium text-[#ec4899]">Untangling and streaming response...</span>
+          </div>
+        )}
       </motion.div>
 
       {/* DORM CHEF NUTRITIONAL PROFILE & MACROS ESTIMATION CARD */}

@@ -551,6 +551,47 @@ async function generateContentWithRetry(
   throw lastError;
 }
 
+// Robust helper to call generateContentStream with retry and fallback models on 503 / 429 high-demand errors
+async function generateContentStreamWithRetry(
+  ai: GoogleGenAI,
+  params: { contents: any; config?: any },
+  modelsToTry: string[] = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
+) {
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const stream = await ai.models.generateContentStream({
+          ...params,
+          model,
+        });
+        return stream;
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        const status = err?.status || err?.code || 0;
+        const isTransient =
+          status === 503 ||
+          status === 429 ||
+          errMsg.includes("503") ||
+          errMsg.includes("UNAVAILABLE") ||
+          errMsg.includes("high demand") ||
+          errMsg.includes("temporary");
+
+        if (isTransient) {
+          console.warn(`[Gemini API Stream] Temporary error on model '${model}' (attempt ${attempt + 1}): ${errMsg}. Retrying/falling back...`);
+          await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // Untangle Endpoint
 app.post("/api/untangle", async (req, res) => {
   try {
@@ -559,7 +600,7 @@ app.post("/api/untangle", async (req, res) => {
       return res.status(auth.status || 401).json({ error: auth.error });
     }
 
-    const { prompt, route = "auto", budget, files = [], audio } = req.body;
+    const { prompt, route = "auto", budget, files = [], audio, stream = true } = req.body;
 
     if (!prompt && (!files || files.length === 0) && !audio) {
       return res.status(400).json({ error: "Please provide text, image, or audio input." });
@@ -660,6 +701,49 @@ Output EXACTLY this layout with no additional text before or after:
 1. [Step 1 - simple instructions for dorm cooking]
 2. [Step 2]
 `;
+
+    const wantsStream =
+      stream !== false &&
+      (stream === true || req.headers.accept?.includes("text/event-stream"));
+
+    if (wantsStream) {
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+
+      try {
+        const streamResponse = await generateContentStreamWithRetry(ai, {
+          contents: { parts },
+          config: {
+            systemInstruction,
+            temperature: 0.2,
+          },
+        });
+
+        let fullText = "";
+        for await (const chunk of streamResponse) {
+          const textChunk = chunk.text || "";
+          if (textChunk) {
+            fullText += textChunk;
+            res.write(`data: ${JSON.stringify({ chunk: textChunk })}\n\n`);
+          }
+        }
+
+        const routeDetected = fullText.includes("DORM CHEF:") ? "chef" : "notes";
+        await recordUsageLog(auth, "/api/untangle");
+
+        res.write(`data: ${JSON.stringify({ done: true, routeDetected, fullText })}\n\n`);
+        res.end();
+        return;
+      } catch (streamErr: any) {
+        console.error("Streaming error in /api/untangle:", streamErr);
+        res.write(`data: ${JSON.stringify({ error: streamErr.message || "Streaming failed" })}\n\n`);
+        res.end();
+        return;
+      }
+    }
 
     const response = await generateContentWithRetry(ai, {
       contents: { parts },

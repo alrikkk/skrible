@@ -42,6 +42,7 @@ export default function App() {
   const [audioAttachment, setAudioAttachment] = useState<FileAttachment | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [outputMarkdown, setOutputMarkdown] = useState<string>("");
   const [routeDetected, setRouteDetected] = useState<"notes" | "chef">("notes");
 
@@ -225,6 +226,7 @@ export default function App() {
   // Submit Untangle
   const handleUntangle = async () => {
     setIsLoading(true);
+    setIsStreaming(true);
     setOutputMarkdown("");
     setIsSaved(false);
 
@@ -233,6 +235,7 @@ export default function App() {
         prompt: promptText,
         route,
         budget,
+        stream: true,
         files: files.map((f) => ({ data: f.data, mimeType: f.mimeType })),
         audio: audioAttachment
           ? { data: audioAttachment.data, mimeType: audioAttachment.mimeType }
@@ -245,19 +248,81 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "text/event-stream, application/json",
           ...authHeaders,
         },
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to process untangle request.");
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to process untangle request.");
       }
 
-      setOutputMarkdown(data.result);
-      setRouteDetected(data.routeDetected || (route === "chef" ? "chef" : "notes"));
+      const contentType = response.headers.get("content-type") || "";
+
+      if (contentType.includes("text/event-stream") && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let accumulated = "";
+        let buffer = "";
+        let detectedRoute: "notes" | "chef" = route === "chef" ? "chef" : "notes";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
+            const jsonStr = trimmed.slice(6);
+            if (!jsonStr) continue;
+
+            try {
+              const data = JSON.parse(jsonStr);
+              if (data.error) {
+                throw new Error(data.error);
+              }
+              if (data.chunk) {
+                accumulated += data.chunk;
+                setOutputMarkdown(accumulated);
+
+                if (accumulated.includes("DORM CHEF:")) {
+                  detectedRoute = "chef";
+                  setRouteDetected("chef");
+                } else if (accumulated.includes("UNTANGLED NOTES:")) {
+                  detectedRoute = "notes";
+                  setRouteDetected("notes");
+                }
+              }
+              if (data.done) {
+                if (data.routeDetected) {
+                  detectedRoute = data.routeDetected;
+                  setRouteDetected(data.routeDetected);
+                }
+                if (data.fullText) {
+                  accumulated = data.fullText;
+                  setOutputMarkdown(accumulated);
+                }
+              }
+            } catch (e: any) {
+              if (e.message && !e.message.includes("JSON")) {
+                console.warn("Parse error in stream line:", e);
+              }
+            }
+          }
+        }
+
+        setRouteDetected(detectedRoute);
+      } else {
+        const data = await response.json();
+        setOutputMarkdown(data.result);
+        setRouteDetected(data.routeDetected || (route === "chef" ? "chef" : "notes"));
+      }
 
       // Haptic feedback on successful untangle
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -267,6 +332,7 @@ export default function App() {
       alert(error.message || "An error occurred while communicating with Skrible AI.");
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
     }
   };
 
@@ -699,6 +765,7 @@ export default function App() {
                 markdown={outputMarkdown}
                 routeDetected={routeDetected}
                 budget={budget}
+                isStreaming={isStreaming}
                 onGenerateFlashcards={handleGenerateFlashcards}
                 onSaveToHistory={handleSaveToHistory}
                 isSaved={isSaved}
