@@ -155,7 +155,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                 </span>
                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1">
                   <Check className="w-3 h-3 text-emerald-700 stroke-[3]" />
-                  <span>Public & Ready</span>
+                  <span>Supabase Synced</span>
                 </span>
               </div>
 

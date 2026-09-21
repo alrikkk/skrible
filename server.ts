@@ -415,10 +415,10 @@ function saveSharedNotesToDisk() {
 // Pre-load existing shared notes
 loadSharedNotesFromDisk();
 
-// POST /api/share-note - Generate a unique public URL for the current untangled note
+// POST /api/share-note - Generate a unique public URL for the current untangled note using Supabase backend
 app.post("/api/share-note", async (req, res) => {
   try {
-    const { title, content, routeDetected = "notes", budget = "" } = req.body;
+    const { title, content, routeDetected = "notes", budget = "", originUrl = "" } = req.body;
 
     if (!content || typeof content !== "string" || !content.trim()) {
       return res.status(400).json({ error: "Content is required to share a note." });
@@ -438,20 +438,65 @@ app.post("/api/share-note", async (req, res) => {
       views: 0,
     };
 
+    // Cache locally to memory and disk for immediate resilient retrieval
     sharedNotesMap.set(shareId, note);
     saveSharedNotesToDisk();
 
-    // Determine public base URL from request headers or environment
-    const forwardedProto = req.get("x-forwarded-proto");
-    const forwardedHost = req.get("x-forwarded-host");
-    const host = forwardedHost || req.get("host") || "localhost:3000";
-    const proto = forwardedProto || (req.secure ? "https" : "http");
-    const origin = req.get("origin") || req.get("referer")?.replace(/\/$/, "") || `${proto}://${host}`;
+    // Check optional authenticated user from Bearer token
+    let userId: string | null = null;
+    const authHeader = req.headers.authorization;
+    const adminClient = getSupabaseAdmin();
 
-    // Prefer APP_URL from environment if available and valid
-    let baseUrl = origin;
-    if (process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL") {
+    if (authHeader && authHeader.startsWith("Bearer ") && adminClient) {
+      try {
+        const token = authHeader.replace(/^Bearer\s+/, "").trim();
+        const { data: userData } = await adminClient.auth.getUser(token);
+        if (userData?.user?.id) {
+          userId = userData.user.id;
+        }
+      } catch {
+        // Guest or invalid session
+      }
+    }
+
+    // Persist to Supabase backend database
+    let supabasePersisted = false;
+    if (adminClient) {
+      try {
+        const { error: sbError } = await adminClient.from("shared_notes").insert({
+          id: shareId,
+          title: cleanTitle,
+          content: content.trim(),
+          route_detected: routeDetected === "chef" ? "chef" : "notes",
+          budget: typeof budget === "string" ? budget : "",
+          user_id: userId,
+          created_at: note.createdAt,
+          views: 0,
+        });
+
+        if (!sbError) {
+          supabasePersisted = true;
+        } else {
+          console.warn("[Supabase Backend] shared_notes table insert note:", sbError.message);
+        }
+      } catch (err: any) {
+        console.warn("[Supabase Backend] Could not persist to shared_notes table:", err?.message);
+      }
+    }
+
+    // Determine public base URL prioritizing client origin, environment, or request headers
+    let baseUrl = "";
+    if (typeof originUrl === "string" && originUrl.trim() && originUrl.startsWith("http")) {
+      baseUrl = originUrl.trim().replace(/\/$/, "");
+    } else if (process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL") {
       baseUrl = process.env.APP_URL.replace(/\/$/, "");
+    } else {
+      const forwardedProto = req.get("x-forwarded-proto");
+      const forwardedHost = req.get("x-forwarded-host");
+      const host = forwardedHost || req.get("host") || "localhost:3000";
+      const proto = forwardedProto || (req.secure ? "https" : "http");
+      const origin = req.get("origin") || req.get("referer")?.replace(/\/$/, "") || `${proto}://${host}`;
+      baseUrl = origin;
     }
 
     const shareUrl = `${baseUrl}/?share=${shareId}`;
@@ -462,6 +507,7 @@ app.post("/api/share-note", async (req, res) => {
       shareUrl,
       title: cleanTitle,
       createdAt: note.createdAt,
+      backend: supabasePersisted ? "supabase" : "local_cache",
     });
   } catch (err: any) {
     console.error("Error generating share URL:", err);
@@ -469,10 +515,49 @@ app.post("/api/share-note", async (req, res) => {
   }
 });
 
-// GET /api/share-note/:id - Retrieve public shared note for peers
-app.get("/api/share-note/:id", (req, res) => {
+// GET /api/share-note/:id - Retrieve public shared note for peers (checks Supabase then local disk cache)
+app.get("/api/share-note/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const adminClient = getSupabaseAdmin();
+
+    // 1. Attempt to fetch from Supabase backend
+    if (adminClient) {
+      try {
+        const { data: sbNote, error } = await adminClient
+          .from("shared_notes")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (!error && sbNote) {
+          const updatedViews = (sbNote.views || 0) + 1;
+          adminClient
+            .from("shared_notes")
+            .update({ views: updatedViews })
+            .eq("id", id)
+            .then();
+
+          return res.json({
+            success: true,
+            provider: "supabase",
+            note: {
+              id: sbNote.id,
+              title: sbNote.title,
+              content: sbNote.content,
+              routeDetected: sbNote.route_detected || sbNote.routeDetected || "notes",
+              budget: sbNote.budget || "",
+              createdAt: sbNote.created_at || sbNote.createdAt,
+              views: updatedViews,
+            },
+          });
+        }
+      } catch (sbErr) {
+        console.warn("[Supabase Backend] Reading from shared_notes error, falling back:", sbErr);
+      }
+    }
+
+    // 2. Fallback to resilient local cache store
     const note = sharedNotesMap.get(id);
 
     if (!note) {
@@ -485,6 +570,7 @@ app.get("/api/share-note/:id", (req, res) => {
 
     return res.json({
       success: true,
+      provider: "local",
       note,
     });
   } catch (err: any) {

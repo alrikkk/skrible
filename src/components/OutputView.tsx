@@ -268,6 +268,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
   const handleMarkdownChange = (newVal: string) => {
     setEditedMarkdown(newVal);
+    setPublicShareUrl(null);
     onUpdateMarkdown?.(newVal);
   };
 
@@ -722,21 +723,28 @@ export const OutputView: React.FC<OutputViewProps> = ({
     };
   }, [displayMarkdown, activeMarkdown]);
 
-  // Generate unique public URL and open share interface
-  const handleShare = async () => {
+  // Generate unique public URL via Supabase backend and open share interface
+  const handleGenerateShareLink = async () => {
     let activeUrl = publicShareUrl;
 
     if (!activeUrl) {
       try {
         setIsGeneratingShareUrl(true);
+        const authHeaders = await getAuthHeaders();
+        const originUrl = typeof window !== "undefined" ? window.location.origin : "";
+
         const res = await fetch("/api/share-note", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
           body: JSON.stringify({
-            title: recipeTitle,
+            title: recipeTitle || (routeDetected === "chef" ? "Dorm Chef Recipe" : "Untangled Notes"),
             content: displayMarkdown || activeMarkdown,
             routeDetected,
             budget,
+            originUrl,
           }),
         });
 
@@ -752,21 +760,34 @@ export const OutputView: React.FC<OutputViewProps> = ({
         try {
           await navigator.clipboard.writeText(data.shareUrl);
           setShared(true);
-          setShareToast("Unique public URL generated & copied to clipboard! Ready to send to peers.");
-          setTimeout(() => setShared(false), 3000);
+          setShareToast("Public share link generated via Supabase! Copied to clipboard.");
+          setTimeout(() => setShared(false), 3500);
         } catch {
-          setShareToast("Unique public URL generated! Ready to share with study peers.");
+          setShareToast("Public share link generated via Supabase! Ready to share with peers.");
         }
       } catch (err: any) {
-        console.error("Failed to generate share URL:", err);
+        console.error("Failed to generate share URL via Supabase backend:", err);
+        setShareToast(err.message || "Failed to generate public share link.");
       } finally {
         setIsGeneratingShareUrl(false);
+      }
+    } else {
+      // If already generated, copy active URL again
+      try {
+        await navigator.clipboard.writeText(activeUrl);
+        setShared(true);
+        setShareToast("Share link copied to clipboard!");
+        setTimeout(() => setShared(false), 3000);
+      } catch {
+        // Fallback
       }
     }
 
     // Open the full ShareModal where the unique public URL is prominently presented
     setIsShareModalOpen(true);
   };
+
+  const handleShare = handleGenerateShareLink;
 
   // Helper to extract clean plain text from React nodes (for time parsing)
   const extractPlainText = (node: React.ReactNode): string => {
@@ -1105,6 +1126,36 @@ export const OutputView: React.FC<OutputViewProps> = ({
             )}
           </button>
 
+          {/* Generate Share Link Button (Supabase Backend) */}
+          <button
+            id="generate-share-link-button"
+            onClick={handleGenerateShareLink}
+            disabled={isGeneratingShareUrl}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              shared || publicShareUrl
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
+                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Generate a public-facing URL using the Supabase backend to share your structured study guide with peers"
+          >
+            {isGeneratingShareUrl ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                <span className="text-[#ec4899]">generating link...</span>
+              </>
+            ) : shared ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                <span>share link copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>generate share link</span>
+              </>
+            )}
+          </button>
+
           {(routeDetected === "chef" || ingredientsList.length > 0) && (
             <button
               onClick={() => {
@@ -1224,18 +1275,49 @@ export const OutputView: React.FC<OutputViewProps> = ({
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="mb-4 p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-2xs"
+          className="mb-4 p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-semibold flex flex-wrap items-center justify-between gap-2 shadow-2xs"
         >
           <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+            <Check className="w-4 h-4 text-emerald-600 stroke-[2.5] shrink-0" />
             <span>{shareToast}</span>
           </div>
-          <button
-            onClick={() => setShareToast(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs underline cursor-pointer"
-          >
-            Dismiss
-          </button>
+          <div className="flex items-center gap-2">
+            {publicShareUrl && (
+              <>
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(publicShareUrl);
+                    setShared(true);
+                    setTimeout(() => setShared(false), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition-colors shadow-2xs"
+                >
+                  Copy URL
+                </button>
+                <a
+                  href={publicShareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1"
+                >
+                  <span>Open</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </>
+            )}
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="text-emerald-700 hover:text-emerald-950 text-xs font-bold underline cursor-pointer"
+            >
+              Share options
+            </button>
+            <button
+              onClick={() => setShareToast(null)}
+              className="text-emerald-600 hover:text-emerald-900 text-xs underline cursor-pointer ml-1"
+            >
+              Dismiss
+            </button>
+          </div>
         </motion.div>
       )}
 
