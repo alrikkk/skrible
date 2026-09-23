@@ -31,6 +31,7 @@ import {
   estimateRecipeNutrition,
   estimateIngredientNutrition,
 } from "../utils/nutritionEstimator";
+import { analyzeNoteContentForTags } from "../utils/tagSuggester";
 import {
   Copy,
   Check,
@@ -678,6 +679,18 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const firstLine = activeMarkdown.split("\n")[0] || "";
   const recipeTitle =
     firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() || "Recipe";
+
+  // Analyze current note content to automatically discover relevant tags (e.g. classes, ingredients, diets)
+  const smartDetectedTags = useMemo(() => {
+    const text = displayMarkdown || activeMarkdown;
+    if (!text || text.trim().length === 0) return [];
+    return analyzeNoteContentForTags({
+      title: recipeTitle,
+      outputMarkdown: text,
+      routeDetected,
+      maxSuggestions: 8,
+    });
+  }, [displayMarkdown, activeMarkdown, recipeTitle, routeDetected]);
 
   // Real-time automatic estimated nutritional breakdown calculated from ingredients list and portion multiplier
   const autoNutrition = useMemo(() => {
@@ -1404,8 +1417,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 flex-1">
-          {Array.from(new Set([...PRESET_TAGS, ...selectedTags])).map((tag) => {
+          {Array.from(new Set([...selectedTags, ...smartDetectedTags.map((s) => s.tag), ...PRESET_TAGS])).map((tag) => {
             const isSelected = selectedTags.includes(tag);
+            const smartMatch = smartDetectedTags.find((s) => s.tag.toLowerCase() === tag.toLowerCase());
             return (
               <button
                 key={tag}
@@ -1414,10 +1428,25 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
                   isSelected
                     ? "bg-[#ec4899] text-white border-[#ec4899] font-semibold shadow-2xs"
+                    : smartMatch
+                    ? "bg-amber-50 text-black border-amber-300 hover:border-[#ec4899] hover:bg-pink-50 font-medium"
                     : "bg-white text-black/70 border-black/15 hover:border-black/30 hover:bg-black/5 font-medium"
                 }`}
+                title={smartMatch ? `Auto-detected from note: ${smartMatch.categoryLabel}` : undefined}
               >
-                {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                {isSelected ? (
+                  <Check className="w-3 h-3 text-white stroke-[3]" />
+                ) : smartMatch ? (
+                  <span className="text-[10px]">
+                    {smartMatch.category === "class"
+                      ? "🎓"
+                      : smartMatch.category === "ingredient"
+                      ? "🥦"
+                      : smartMatch.category === "diet"
+                      ? "⚡"
+                      : "✨"}
+                  </span>
+                ) : null}
                 <span>{tag}</span>
               </button>
             );

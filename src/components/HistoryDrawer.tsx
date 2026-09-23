@@ -17,9 +17,11 @@ import {
   Plus,
   Filter,
   Share2,
+  Sparkles,
 } from "lucide-react";
 import { isWebShareSupported, shareViaWebShare, SharePayloadOptions } from "../utils/webShare";
 import { ShareModal } from "./ShareModal";
+import { analyzeNoteContentForTags } from "../utils/tagSuggester";
 
 // Helper to highlight matching keywords in titles and tags
 const highlightKeywordMatch = (text: string, query: string): React.ReactNode => {
@@ -310,6 +312,32 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
     setBulkTagInput("");
     setIsBulkTagModalOpen(false);
   };
+
+  // Smart suggested tags aggregated across selected items for bulk tagging
+  const bulkSuggestedTags = useMemo(() => {
+    if (selectedIds.size === 0) return DEFAULT_SUGGESTED_TAGS.slice(0, 5);
+    const selectedItems = history.filter((h) => selectedIds.has(h.id));
+    const tagCounts = new Map<string, number>();
+
+    for (const item of selectedItems) {
+      const detected = analyzeNoteContentForTags({
+        title: item.title,
+        outputMarkdown: item.outputMarkdown,
+        inputPrompt: item.inputPrompt,
+        routeDetected: item.routeDetected,
+        existingTags: item.tags,
+      });
+      for (const t of detected) {
+        tagCounts.set(t.tag, (tagCounts.get(t.tag) || 0) + 1);
+      }
+    }
+
+    const sorted = Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag);
+
+    return sorted.length > 0 ? sorted.slice(0, 6) : DEFAULT_SUGGESTED_TAGS.slice(0, 5);
+  }, [selectedIds, history]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end">
@@ -627,12 +655,17 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-1">
-              {DEFAULT_SUGGESTED_TAGS.slice(0, 5).map((sugg) => (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[9px] font-bold text-gray-600 uppercase flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-[#ec4899] fill-[#ec4899]" />
+                <span>Suggested:</span>
+              </span>
+              {bulkSuggestedTags.map((sugg) => (
                 <button
                   key={sugg}
                   onClick={() => setBulkTagInput(sugg)}
-                  className="text-[10px] font-bold bg-white border border-black px-1.5 py-0.5 hover:bg-pink-100 cursor-pointer"
+                  className="text-[10px] font-bold bg-white border border-black px-1.5 py-0.5 hover:bg-pink-100 cursor-pointer shadow-2xs hover:scale-105 active:scale-95 transition-all"
+                  title={`Suggest tag: ${sugg}`}
                 >
                   +{sugg}
                 </button>
@@ -872,22 +905,68 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                           </button>
                         </div>
 
-                        {/* Quick Tag Suggestions */}
-                        <div className="flex flex-wrap items-center gap-1">
-                          <span className="text-[9px] font-bold text-gray-500 uppercase">
-                            Suggested:
-                          </span>
-                          {DEFAULT_SUGGESTED_TAGS.map((sugg) => (
-                            <button
-                              key={sugg}
-                              type="button"
-                              onClick={() => handleAddTagToItem(item.id, sugg)}
-                              className="text-[9px] font-bold bg-white hover:bg-[#ec4899] hover:text-white border border-black/40 px-1.5 py-0.2 rounded transition-colors cursor-pointer"
-                            >
-                              +{sugg}
-                            </button>
-                          ))}
-                        </div>
+                        {/* Quick Tag Suggestions Analyzed From Note Content */}
+                        {(() => {
+                          const autoSuggestions = analyzeNoteContentForTags({
+                            title: item.title,
+                            outputMarkdown: item.outputMarkdown,
+                            inputPrompt: item.inputPrompt,
+                            routeDetected: item.routeDetected,
+                            existingTags: item.tags || [],
+                            maxSuggestions: 8,
+                          });
+
+                          return (
+                            <div className="pt-1.5 border-t border-black/15">
+                              <div className="flex items-center justify-between text-[9px] font-black uppercase text-black/70 mb-1">
+                                <span className="flex items-center gap-1">
+                                  <Sparkles className="w-2.5 h-2.5 text-[#ec4899] fill-[#ec4899]" />
+                                  <span>Suggested for this note:</span>
+                                </span>
+                                <span className="text-[8px] font-mono text-gray-500 lowercase">
+                                  {item.routeDetected === "chef" ? "ingredients & diet" : "classes & topics"}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-1">
+                                {autoSuggestions.map((sugg) => {
+                                  const icon =
+                                    sugg.category === "class"
+                                      ? "🎓"
+                                      : sugg.category === "ingredient"
+                                      ? "🥦"
+                                      : sugg.category === "diet"
+                                      ? "⚡"
+                                      : "📌";
+                                  return (
+                                    <button
+                                      key={sugg.tag}
+                                      type="button"
+                                      onClick={() => handleAddTagToItem(item.id, sugg.tag)}
+                                      className="text-[9px] font-bold bg-white hover:bg-[#ec4899] hover:text-white border border-black/40 px-1.5 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 group/sugg shadow-2xs hover:scale-105 active:scale-95"
+                                      title={`Add "${sugg.tag}" (${sugg.categoryLabel} detected in note content)`}
+                                    >
+                                      <span className="text-[8px]">{icon}</span>
+                                      <span>+{sugg.tag}</span>
+                                    </button>
+                                  );
+                                })}
+
+                                {autoSuggestions.length === 0 &&
+                                  DEFAULT_SUGGESTED_TAGS.slice(0, 4).map((sugg) => (
+                                    <button
+                                      key={sugg}
+                                      type="button"
+                                      onClick={() => handleAddTagToItem(item.id, sugg)}
+                                      className="text-[9px] font-bold bg-white hover:bg-[#ec4899] hover:text-white border border-black/40 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                    >
+                                      +{sugg}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
