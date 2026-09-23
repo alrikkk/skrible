@@ -401,12 +401,55 @@ export const OutputView: React.FC<OutputViewProps> = ({
     setIsSpeaking(true);
   };
 
-  // Copy Markdown
-  const handleCopy = () => {
-    navigator.clipboard.writeText(displayMarkdown || activeMarkdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Copy entire generated markdown content to clipboard for use in other apps
+  const handleCopyToClipboard = async () => {
+    const textToCopy = displayMarkdown || activeMarkdown;
+    if (!textToCopy) return;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopied(true);
+      setShareToast("Full markdown content copied to clipboard! Ready to paste into other apps.");
+      setTimeout(() => setCopied(false), 2500);
+      setTimeout(() => setShareToast(null), 4000);
+    } catch (err) {
+      console.error("Failed to copy markdown to clipboard:", err);
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setShareToast("Full markdown content copied to clipboard! Ready to paste into other apps.");
+        setTimeout(() => setCopied(false), 2500);
+        setTimeout(() => setShareToast(null), 4000);
+      } catch (e) {
+        setShareToast("Could not copy automatically. Please select text manually.");
+      }
+    }
   };
+
+  const handleCopy = handleCopyToClipboard;
 
   // Play Gemini TTS Audio
   const handleTTS = async () => {
@@ -1068,12 +1111,30 @@ export const OutputView: React.FC<OutputViewProps> = ({
             <span className="hidden sm:inline">send options</span>
           </button>
 
+          {/* Copy to Clipboard Button */}
           <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
+            id="copy-to-clipboard-button"
+            data-testid="copy-to-clipboard-button"
+            onClick={handleCopyToClipboard}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              copied
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-300 ring-1 ring-emerald-400"
+                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Copy entire generated markdown content to clipboard for use in other apps"
+            aria-label="Copy to Clipboard"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? "copied!" : "copy md"}
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                <span className="text-emerald-800">copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>copy to clipboard</span>
+              </>
+            )}
           </button>
 
           {/* Print Clean Document Button */}
@@ -1567,6 +1628,39 @@ export const OutputView: React.FC<OutputViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* RAW MARKDOWN CONTENT BAR WITH QUICK COPY ACTION */}
+      <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-black/10 text-xs text-black/60 print:hidden">
+        <div className="flex items-center gap-2 font-mono text-[11px]">
+          <span className="bg-black/5 border border-black/10 px-2 py-0.5 rounded font-semibold text-black/75">
+            markdown
+          </span>
+          <span className="text-black/40 hidden sm:inline">•</span>
+          <span className="text-black/50 hidden sm:inline">formatted & ready for Obsidian, Notion, or Docs</span>
+        </div>
+        <button
+          onClick={handleCopyToClipboard}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer border ${
+            copied
+              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+              : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+          }`}
+          title="Copy entire markdown content to clipboard"
+          aria-label="Copy entire markdown to clipboard"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+              <span className="text-emerald-800 font-bold">copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3 text-[#ec4899]" />
+              <span>copy to clipboard</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING & STAGGERED REVEAL ANIMATIONS */}
       <motion.div
