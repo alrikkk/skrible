@@ -66,7 +66,9 @@ import {
   Globe,
   Printer,
   FileText,
+  FileDown,
 } from "lucide-react";
+import { downloadNotePdf } from "../utils/pdfExport";
 
 interface OutputViewProps {
   markdown: string;
@@ -286,6 +288,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
   const [isAddingCustomTag, setIsAddingCustomTag] = useState(false);
+
+  // PDF Export state
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfExportSuccess, setPdfExportSuccess] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const prevStreamingRef = useRef<boolean>(false);
@@ -779,6 +785,42 @@ export const OutputView: React.FC<OutputViewProps> = ({
     };
   }, [displayMarkdown, activeMarkdown]);
 
+  // Export note/recipe to downloadable PDF file
+  const handleExportPdf = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await downloadNotePdf({
+        title: recipeTitle,
+        markdown: displayMarkdown || activeMarkdown,
+        routeDetected,
+        tags: selectedTags,
+        servings: currentServings,
+        nutrition: activeNutrition
+          ? {
+              calories: activeNutrition.caloriesPerServing,
+              protein: activeNutrition.proteinGrams,
+              carbs: activeNutrition.carbsGrams,
+              fat: activeNutrition.fatGrams,
+              estimatedCost: chefStats?.totalCost || undefined,
+            }
+          : undefined,
+        readingStats,
+        elementToCapture: containerRef.current,
+      });
+      setPdfExportSuccess(true);
+      setShareToast("PDF document downloaded successfully!");
+      setTimeout(() => setPdfExportSuccess(false), 2500);
+      setTimeout(() => setShareToast(null), 4000);
+    } catch (err) {
+      console.error("Failed to export PDF:", err);
+      setShareToast("Could not generate PDF. You can also use Print to save as PDF.");
+      setTimeout(() => setShareToast(null), 4000);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   // Generate unique public URL via Supabase backend and open share interface
   const handleGenerateShareLink = async () => {
     let activeUrl = publicShareUrl;
@@ -1146,6 +1188,38 @@ export const OutputView: React.FC<OutputViewProps> = ({
               <>
                 <Copy className="w-3.5 h-3.5 text-[#ec4899]" />
                 <span>copy to clipboard</span>
+              </>
+            )}
+          </button>
+
+          {/* Export to PDF Button */}
+          <button
+            id="export-to-pdf-button"
+            data-testid="export-to-pdf-button"
+            onClick={handleExportPdf}
+            disabled={isExportingPdf}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              pdfExportSuccess
+                ? "bg-rose-50 text-rose-800 border border-rose-300 ring-1 ring-rose-400"
+                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+            }`}
+            title="Download formatted document as a clean PDF file"
+            aria-label="Export to PDF"
+          >
+            {isExportingPdf ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                <span className="text-[#ec4899]">exporting pdf...</span>
+              </>
+            ) : pdfExportSuccess ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-rose-600 stroke-[2.5]" />
+                <span className="text-rose-800">pdf downloaded!</span>
+              </>
+            ) : (
+              <>
+                <FileDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>export to pdf</span>
               </>
             )}
           </button>

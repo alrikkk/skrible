@@ -18,10 +18,12 @@ import {
   Filter,
   Share2,
   Sparkles,
+  FileDown,
 } from "lucide-react";
 import { isWebShareSupported, shareViaWebShare, SharePayloadOptions } from "../utils/webShare";
 import { ShareModal } from "./ShareModal";
 import { analyzeNoteContentForTags } from "../utils/tagSuggester";
+import { downloadNotePdf } from "../utils/pdfExport";
 
 // Helper to highlight matching keywords in titles and tags
 const highlightKeywordMatch = (text: string, query: string): React.ReactNode => {
@@ -91,6 +93,29 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
 
   // Share modal state for history item
   const [sharingItem, setSharingItem] = useState<UntangleHistoryItem | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
+
+  const handleDownloadItemPdf = async (item: UntangleHistoryItem) => {
+    const firstLine = item.outputMarkdown.split("\n")[0] || "";
+    const title =
+      item.title ||
+      firstLine.replace(/^[#\s🍳DORMCHEF:🧠UNTANGLEDNOTES]+/, "").trim() ||
+      "Saved Untangle";
+
+    setDownloadingPdfId(item.id);
+    try {
+      await downloadNotePdf({
+        title,
+        markdown: item.outputMarkdown,
+        routeDetected: item.routeDetected,
+        tags: item.tags,
+      });
+    } catch (err) {
+      console.error("Failed to download PDF for history item:", err);
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   const handleShareItem = async (item: UntangleHistoryItem) => {
     const firstLine = item.outputMarkdown.split("\n")[0] || "";
@@ -984,6 +1009,24 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                       </button>
 
                       <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadItemPdf(item);
+                          }}
+                          disabled={downloadingPdfId === item.id}
+                          className="bg-white hover:bg-black/5 text-black border border-black px-2 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex items-center gap-1"
+                          title="Export and download as PDF file"
+                        >
+                          {downloadingPdfId === item.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                          ) : (
+                            <FileDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                          )}
+                          <span className="text-[10px] font-bold">PDF</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={(e) => {

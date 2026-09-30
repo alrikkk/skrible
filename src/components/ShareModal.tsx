@@ -18,7 +18,9 @@ import {
   Globe,
   Users,
   Link2,
+  FileDown,
 } from "lucide-react";
+import { downloadNotePdf } from "../utils/pdfExport";
 import {
   isWebShareSupported,
   shareViaWebShare,
@@ -41,6 +43,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
   const [nativeShareSuccess, setNativeShareSuccess] = useState<string | null>(null);
   const [nativeShareError, setNativeShareError] = useState<string | null>(null);
   const [previewTab, setPreviewTab] = useState<"formatted" | "markdown">("formatted");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfDownloaded, setPdfDownloaded] = useState(false);
 
   if (!isOpen) return null;
 
@@ -105,6 +109,35 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // Download PDF file
+  const handleDownloadPdf = async () => {
+    if (isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      await downloadNotePdf({
+        title: cleanTitle,
+        markdown: options.markdown,
+        routeDetected: options.routeDetected,
+        servings: options.currentServings,
+        nutrition: options.nutrition
+          ? {
+              calories: options.nutrition.caloriesPerServing,
+              protein: options.nutrition.proteinGrams,
+              carbs: options.nutrition.carbsGrams,
+              fat: options.nutrition.fatGrams,
+              estimatedCost: options.recipeStats?.totalCost,
+            }
+          : undefined,
+      });
+      setPdfDownloaded(true);
+      setTimeout(() => setPdfDownloaded(false), 2500);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -334,21 +367,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
               <span className="text-[11px] font-bold uppercase tracking-wider text-black/60 block mb-2">
                 Copy & Export Tools
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {/* Copy Formatted Text */}
                 <button
                   type="button"
                   onClick={handleCopyFormattedText}
-                  className="flex items-center justify-center gap-2 p-2.5 bg-white hover:bg-black/5 border border-black/15 rounded-xl text-xs font-semibold text-black transition-all shadow-2xs cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 p-2 bg-white hover:bg-black/5 border border-black/15 rounded-xl text-xs font-semibold text-black transition-all shadow-2xs cursor-pointer"
                 >
                   {copiedText ? (
                     <>
-                      <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
-                      <span className="text-emerald-700 font-bold">Text Copied!</span>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                      <span className="text-emerald-700 font-bold">Copied!</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-4 h-4 text-black/70" />
+                      <Copy className="w-3.5 h-3.5 text-black/70" />
                       <span>Copy Text</span>
                     </>
                   )}
@@ -358,16 +391,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="flex items-center justify-center gap-2 p-2.5 bg-white hover:bg-black/5 border border-black/15 rounded-xl text-xs font-semibold text-black transition-all shadow-2xs cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 p-2 bg-white hover:bg-black/5 border border-black/15 rounded-xl text-xs font-semibold text-black transition-all shadow-2xs cursor-pointer"
                 >
                   {copiedLink ? (
                     <>
-                      <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
-                      <span className="text-emerald-700 font-bold">Link Copied!</span>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                      <span className="text-emerald-700 font-bold">Copied!</span>
                     </>
                   ) : (
                     <>
-                      <ExternalLink className="w-4 h-4 text-black/70" />
+                      <ExternalLink className="w-3.5 h-3.5 text-black/70" />
                       <span>Copy Link</span>
                     </>
                   )}
@@ -377,11 +410,41 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                 <button
                   type="button"
                   onClick={handleDownloadMarkdown}
-                  className="flex items-center justify-center gap-2 p-2.5 bg-white hover:bg-black/5 border border-black/15 rounded-xl text-xs font-semibold text-black transition-all shadow-2xs cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 p-2 bg-white hover:bg-black/5 border border-black/15 rounded-xl text-xs font-semibold text-black transition-all shadow-2xs cursor-pointer"
                   title="Download .md file to import into Notion, Obsidian, or Notes"
                 >
-                  <Download className="w-4 h-4 text-black/70" />
+                  <Download className="w-3.5 h-3.5 text-black/70" />
                   <span>Download .md</span>
+                </button>
+
+                {/* Download PDF */}
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  className={`flex items-center justify-center gap-1.5 p-2 border rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                    pdfDownloaded
+                      ? "bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-400 font-bold"
+                      : "bg-white hover:bg-black/5 border-black/15 text-black hover:border-[#ec4899]"
+                  }`}
+                  title="Export formatted note or recipe to a downloadable PDF file"
+                >
+                  {isDownloadingPdf ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                      <span className="text-[#ec4899]">Exporting...</span>
+                    </>
+                  ) : pdfDownloaded ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-rose-600 stroke-[2.5]" />
+                      <span className="text-rose-800">Saved!</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                      <span>Export PDF</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
