@@ -1081,108 +1081,23 @@ export const OutputView: React.FC<OutputViewProps> = ({
             <span>{isEditing ? "preview" : isManuallyEdited ? "edit (refined)" : "edit markdown"}</span>
           </button>
 
-          {/* AI Summarize Button */}
-          <button
-            onClick={handleSummarize}
-            disabled={isLoadingSummary}
-            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
-              isLoadingSummary
-                ? "bg-black/5 text-black/60 border-black/15 cursor-wait"
-                : summaryData && !isSummaryDismissed
-                ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/40 hover:bg-[#ec4899]/20"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
-            }`}
-            title="Generate a concise bulleted executive summary of this content with AI"
-          >
-            {isLoadingSummary ? (
-              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 text-[#ec4899]" />
-            )}
-            <span>
-              {isLoadingSummary
-                ? "summarizing..."
-                : summaryData && !isSummaryDismissed
-                ? "summary active"
-                : "summarize"}
-            </span>
-          </button>
-          
-          <button
-            onClick={handleReadAloud}
-            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-              isSpeaking
-                ? "bg-[#ec4899] text-white border-[#ec4899] animate-pulse"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
-            }`}
-            title="Listen to untangled note read aloud"
-          >
-            {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#ec4899]" />}
-            <span>{isSpeaking ? "Stop" : "Listen"}</span>
-          </button>
-
-          <button
-            onClick={handleShare}
-            disabled={isGeneratingShareUrl}
-            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
-              shared
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
-            }`}
-            title="Generate unique public URL to share note with study peers"
-          >
-            {isGeneratingShareUrl ? (
-              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-            ) : shared ? (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            ) : (
-              <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
-            )}
-            <span>{isGeneratingShareUrl ? "generating link..." : shared ? "link copied!" : "share note"}</span>
-          </button>
-
-          {publicShareUrl && (
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(publicShareUrl);
-                setShared(true);
-                setShareToast("Unique public URL copied to clipboard!");
-                setTimeout(() => setShared(false), 2500);
-              }}
-              className="flex items-center gap-1.5 bg-[#ec4899]/10 hover:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
-              title="Copy active public URL to clipboard"
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              <span>copy link</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setIsShareModalOpen(true)}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs"
-            title="Open all sharing & export options (WhatsApp, Telegram, Mail, Twitter, .md file)"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-black/60" />
-            <span className="hidden sm:inline">send options</span>
-          </button>
-
-          {/* Copy to Clipboard Button */}
+          {/* Copy to Clipboard Button - Primary Action */}
           <button
             id="copy-to-clipboard-button"
             data-testid="copy-to-clipboard-button"
             onClick={handleCopyToClipboard}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               copied
-                ? "bg-emerald-50 text-emerald-800 border border-emerald-300 ring-1 ring-emerald-400"
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-300 ring-1 ring-emerald-400 font-bold"
                 : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
             }`}
-            title="Copy entire generated markdown content to clipboard for use in other apps"
+            title="Copy entire generated markdown content to clipboard for easy pasting into other applications"
             aria-label="Copy to Clipboard"
           >
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                <span className="text-emerald-800">copied!</span>
+                <span className="text-emerald-800">copied to clipboard!</span>
               </>
             ) : (
               <>
@@ -1200,7 +1115,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             disabled={isExportingPdf}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               pdfExportSuccess
-                ? "bg-rose-50 text-rose-800 border border-rose-300 ring-1 ring-rose-400"
+                ? "bg-rose-50 text-rose-800 border border-rose-300 ring-1 ring-rose-400 font-bold"
                 : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
             }`}
             title="Download formatted document as a clean PDF file"
@@ -1234,32 +1149,19 @@ export const OutputView: React.FC<OutputViewProps> = ({
             <span>print</span>
           </button>
 
-          <button
-            onClick={handleTTS}
-            disabled={isLoadingAudio}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
-          >
-            {isLoadingAudio ? (
-              <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent animate-spin rounded-full" />
-            ) : isPlayingAudio ? (
-              <VolumeX className="w-3.5 h-3.5" />
-            ) : (
-              <Volume2 className="w-3.5 h-3.5" />
-            )}
-            {isPlayingAudio ? "stop audio" : "listen audio"}
-          </button>
-
-          {/* Quick One-Paragraph Summary Button */}
+          {/* AI Summarize Button */}
           <button
             id="quick-summary-button"
             onClick={handleSummarize}
             disabled={isLoadingSummary}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
-              summaryData && !isSummaryDismissed
-                ? "bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/40"
-                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              isLoadingSummary
+                ? "bg-black/5 text-black/60 border-black/15 cursor-wait"
+                : summaryData && !isSummaryDismissed
+                ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/40 hover:bg-[#ec4899]/20"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
             }`}
-            title="Generate a short, one-paragraph summary of your untangled notes for quick review"
+            title="Generate a concise bulleted executive summary of this content with AI"
           >
             {isLoadingSummary ? (
               <>
@@ -1268,40 +1170,74 @@ export const OutputView: React.FC<OutputViewProps> = ({
               </>
             ) : (
               <>
-                <FileText className="w-3.5 h-3.5 text-[#ec4899]" />
-                <span>{summaryData && !isSummaryDismissed ? "view summary" : "quick summary"}</span>
+                <Sparkles className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>{summaryData && !isSummaryDismissed ? "summary active" : "summarize"}</span>
               </>
             )}
           </button>
+          
+          {/* Audio TTS Button */}
+          <button
+            onClick={handleTTS}
+            disabled={isLoadingAudio}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer hover:border-[#ec4899]"
+            title="Listen to content with high quality audio"
+          >
+            {isLoadingAudio ? (
+              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+            ) : isPlayingAudio ? (
+              <VolumeX className="w-3.5 h-3.5 text-[#ec4899]" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5 text-[#ec4899]" />
+            )}
+            <span>{isPlayingAudio ? "stop audio" : "listen"}</span>
+          </button>
 
-          {/* Generate Share Link Button (Supabase Backend) */}
+          {/* Share Note Button */}
           <button
             id="generate-share-link-button"
-            onClick={handleGenerateShareLink}
+            onClick={handleShare}
             disabled={isGeneratingShareUrl}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               shared || publicShareUrl
                 ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
-                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
             }`}
-            title="Generate a public-facing URL using the Supabase backend to share your structured study guide with peers"
+            title="Generate unique public URL to share note with study peers"
           >
             {isGeneratingShareUrl ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-                <span className="text-[#ec4899]">generating link...</span>
-              </>
+              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
             ) : shared ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                <span>share link copied!</span>
-              </>
+              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
             ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
-                <span>generate share link</span>
-              </>
+              <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
             )}
+            <span>{isGeneratingShareUrl ? "generating link..." : shared ? "link copied!" : "share note"}</span>
+          </button>
+
+          {publicShareUrl && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(publicShareUrl);
+                setShared(true);
+                setShareToast("Unique public URL copied to clipboard!");
+                setTimeout(() => setShared(false), 2500);
+              }}
+              className="flex items-center gap-1.5 bg-[#ec4899]/10 hover:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
+              title="Copy active public URL to clipboard"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              <span>copy link</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs hover:border-[#ec4899]"
+            title="Open all sharing & export options (WhatsApp, Telegram, Mail, Twitter, .md file)"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-black/60" />
+            <span className="hidden sm:inline">send options</span>
           </button>
 
           {(routeDetected === "chef" || ingredientsList.length > 0) && (
