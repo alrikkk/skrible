@@ -362,7 +362,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder="Refine your markdown notes or recipe here..."
                 rows={22}
-                className="w-full flex-1 font-mono text-xs sm:text-sm text-black dark:text-white bg-white dark:bg-[#141416] border border-black/15 dark:border-white/15 rounded-xl p-3.5 leading-relaxed focus:outline-none focus:border-[#ec4899] focus:ring-1 focus:ring-[#ec4899] resize-y shadow-inner"
+                className="w-full flex-1 font-mono text-xs sm:text-sm text-black dark:text-white bg-white dark:bg-[#141416] border border-black/15 dark:border-white/15 rounded-xl p-3.5 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y shadow-inner"
                 spellCheck={false}
               />
             </div>
@@ -371,7 +371,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             <div className="flex flex-col min-w-0">
               <div className="text-[11px] font-bold uppercase tracking-wider text-black/50 dark:text-white/50 mb-1.5 flex items-center justify-between">
                 <span>Live Rendered Preview</span>
-                <span className="text-[#ec4899]">Real-time</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Real-time</span>
               </div>
               <div className="bg-white dark:bg-[#141416] border border-black/15 dark:border-white/15 rounded-xl p-4 overflow-y-auto max-h-[500px] min-h-[300px]">
                 {renderPreview(value)}

@@ -715,13 +715,13 @@ export const RecipeCostD3Chart: React.FC<RecipeCostD3ChartProps> = ({
       {/* Header with Title, Budget Pill & View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
             <PieChart className="w-4 h-4" />
           </div>
           <div>
             <h4 className="font-bold text-sm text-black tracking-tight flex items-center gap-1.5">
               <span>recipe budget & category breakdown</span>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30">
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 d3 chart
               </span>
               {justUpdated && (

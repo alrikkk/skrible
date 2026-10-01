@@ -287,13 +287,13 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
       {/* Header with Title & Live Stats */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center shadow-2xs">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shadow-2xs">
             <ShoppingCart className="w-4.5 h-4.5" />
           </div>
           <div>
             <h4 className="font-bold text-base text-black tracking-tight flex items-center gap-2 flex-wrap">
               <span>Recipe Grocery List</span>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 font-semibold">
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 font-semibold">
                 simple checklist
               </span>
               {totalCount > 0 && (
@@ -311,8 +311,8 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
         {/* Live Counters & Spent Badges */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           {hasPrices && (
-            <span className="text-xs font-semibold bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
-              <DollarSign className="w-3 h-3" />
+            <span className="text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+              <DollarSign className="w-3 h-3 text-amber-700" />
               <span>To Buy: ${neededCost.toFixed(2)}</span>
             </span>
           )}
@@ -325,7 +325,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
       {/* Visual Progress Bar */}
       <div className="w-full bg-black/5 rounded-full h-2.5 mb-4 overflow-hidden border border-black/10">
         <div
-          className="bg-[#ec4899] h-full transition-all duration-300 ease-out rounded-full"
+          className="bg-emerald-500 h-full transition-all duration-300 ease-out rounded-full"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -334,11 +334,11 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
       {hasPrices && (
         <div className="mb-4 bg-white border border-black/10 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs">
           <div className="flex items-center gap-1.5 text-black/70 font-medium">
-            <Receipt className="w-3.5 h-3.5 text-[#ec4899]" />
+            <Receipt className="w-3.5 h-3.5 text-teal-600" />
             <span className="font-semibold text-black">Receipt & Portion Breakdown:</span>
           </div>
           <div className="flex items-center gap-3 font-semibold">
-            <span className="text-[#ec4899] flex items-center gap-1">
+            <span className="text-amber-800 flex items-center gap-1">
               <span>To Buy:</span>
               <span className="font-mono">${neededCost.toFixed(2)}</span>
             </span>
@@ -385,10 +385,10 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleToggleAll}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs hover:border-indigo-400"
             title={readyCount === totalCount ? "Uncheck all ingredients" : "Mark all as bought"}
           >
-            <CheckCheck className="w-3.5 h-3.5 text-[#ec4899]" />
+            <CheckCheck className="w-3.5 h-3.5 text-indigo-600" />
             <span>{readyCount === totalCount ? "Uncheck All" : "Mark All Bought"}</span>
           </button>
 
@@ -396,17 +396,17 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
           <button
             onClick={() => handleCopyList(true)}
             disabled={missingCount === 0}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 disabled:opacity-40 disabled:hover:bg-white text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 disabled:opacity-40 disabled:hover:bg-white text-black border border-black/15 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs hover:border-emerald-400"
             title="Copy needed grocery items to clipboard"
           >
             {copiedMode === "needed" ? (
               <>
-                <Check className="w-3.5 h-3.5 text-green-600 stroke-[2.5]" />
-                <span className="text-green-600 font-bold">Copied!</span>
+                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                <span className="text-emerald-600 font-bold">Copied!</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-black/70" />
+                <Copy className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Copy To-Buy ({missingCount})</span>
               </>
             )}
@@ -420,8 +420,8 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
           >
             {copiedMode === "all" ? (
               <>
-                <Check className="w-3.5 h-3.5 text-green-600 stroke-[2.5]" />
-                <span className="text-green-600 font-bold">Copied!</span>
+                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                <span className="text-emerald-600 font-bold">Copied!</span>
               </>
             ) : (
               <>
@@ -436,8 +436,8 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
             onClick={() => handleShareListViaWebShare(true)}
             className={`flex items-center gap-1.5 border px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               copiedMode === "shared"
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+                ? "bg-teal-600 text-white border-teal-600"
+                : "bg-white hover:bg-teal-50/50 text-black border-black/15 hover:border-teal-400"
             }`}
             title="Send missing groceries directly to roommates via WhatsApp, Messages, Slack, or Notes"
           >
@@ -448,7 +448,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
               </>
             ) : (
               <>
-                <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+                <Share2 className="w-3.5 h-3.5 text-teal-600" />
                 <span>Share To-Buy</span>
               </>
             )}
@@ -617,7 +617,7 @@ export const ShoppingChecklist: React.FC<ShoppingChecklistProps> = ({
                     className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
                       isDone
                         ? "bg-black/5 text-black/40 border-black/10"
-                        : "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
+                        : "bg-amber-50 text-amber-800 border-amber-300"
                     }`}
                   >
                     {isDone ? "Bought ✓" : "To Buy"}

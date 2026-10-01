@@ -7,5 +7,23 @@
     "budget": "",
     "createdAt": "2026-09-16T18:57:45.889Z",
     "views": 1
+  },
+  {
+    "id": "sn_c1f2a7bc",
+    "title": "Test Note",
+    "content": "# Test\n\nThis is a test note.",
+    "routeDetected": "notes",
+    "budget": "",
+    "createdAt": "2026-10-01T19:10:55.764Z",
+    "views": 1
+  },
+  {
+    "id": "sn_bad7ff4d",
+    "title": "Biology 101: Cellular Respiration",
+    "content": "# Cellular Respiration\n\n- Glycolysis\n- Krebs Cycle\n- Electron Transport Chain",
+    "routeDetected": "notes",
+    "budget": "",
+    "createdAt": "2026-10-01T19:24:27.794Z",
+    "views": 1
   }
 ]

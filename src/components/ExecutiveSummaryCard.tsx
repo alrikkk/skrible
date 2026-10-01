@@ -73,7 +73,7 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
       {/* Top Header Bar */}
       <div className="flex items-center justify-between gap-3 pb-3.5 mb-4 border-b border-black/10 dark:border-white/10">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 dark:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shrink-0">
             <FileText className="w-4 h-4" />
           </div>
           <div>
@@ -81,7 +81,7 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
               <h3 className="text-sm font-bold text-black dark:text-white tracking-tight">
                 Quick Review Summary
               </h3>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/10 text-[#ec4899] font-bold border border-[#ec4899]/25">
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-bold border border-amber-300 dark:border-amber-700">
                 1-Paragraph Synthesis
               </span>
             </div>
@@ -180,7 +180,7 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
             <div className="bg-white dark:bg-[#252528] border border-black/10 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-2xs">
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-black/70 dark:text-white/70 uppercase tracking-wider font-mono">
-                  <AlignLeft className="w-3.5 h-3.5 text-[#ec4899]" />
+                  <AlignLeft className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>One-Paragraph Summary</span>
                 </div>
                 <span className="text-[11px] font-mono text-black/40 dark:text-white/40">
@@ -200,9 +200,9 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowBullets(!showBullets)}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-black/70 dark:text-white/70 hover:text-[#ec4899] dark:hover:text-[#ec4899] transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-black/70 dark:text-white/70 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
                 >
-                  <Sparkles className="w-3 h-3 text-[#ec4899]" />
+                  <Sparkles className="w-3 h-3 text-amber-500" />
                   <span>Key Points & Takeaways ({summary.bullets.length})</span>
                   {showBullets ? (
                     <ChevronUp className="w-3.5 h-3.5 text-black/40 dark:text-white/40" />

@@ -292,11 +292,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             onClick={() => setRoute("auto")}
             className={`w-full py-2.5 px-4 border text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
               route === "auto"
-                ? "bg-[#ec4899] text-white border-[#ec4899] shadow-xs"
+                ? "bg-stone-900 text-white border-stone-900 shadow-xs"
                 : "bg-white text-black/70 hover:text-black hover:bg-black/5 border-black/15"
             }`}
           >
-            <Zap className="w-4 h-4" />
+            <Zap className={`w-4 h-4 ${route === "auto" ? "text-amber-400" : "text-amber-500"}`} />
             <span>auto-detect</span>
           </button>
 
@@ -305,11 +305,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             onClick={() => setRoute("notes")}
             className={`w-full py-2.5 px-4 border text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
               route === "notes"
-                ? "bg-[#ec4899] text-white border-[#ec4899] shadow-xs"
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                 : "bg-white text-black/70 hover:text-black hover:bg-black/5 border-black/15"
             }`}
           >
-            <Brain className="w-4 h-4" />
+            <Brain className={`w-4 h-4 ${route === "notes" ? "text-indigo-100" : "text-indigo-600"}`} />
             <span>Note Cram</span>
           </button>
 
@@ -318,11 +318,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             onClick={() => setRoute("chef")}
             className={`w-full py-2.5 px-4 border text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
               route === "chef"
-                ? "bg-[#ec4899] text-white border-[#ec4899] shadow-xs"
+                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
                 : "bg-white text-black/70 hover:text-black hover:bg-black/5 border-black/15"
             }`}
           >
-            <Utensils className="w-4 h-4" />
+            <Utensils className={`w-4 h-4 ${route === "chef" ? "text-amber-100" : "text-amber-600"}`} />
             <span>The Cook</span>
           </button>
         </div>
@@ -336,14 +336,14 @@ export const InputPanel: React.FC<InputPanelProps> = ({
         {/* ========================================================= */}
         <div
           className={`bg-white border border-black/15 rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between transition-all ${
-            route === "notes" ? "ring-2 ring-[#ec4899]" : ""
+            route === "notes" ? "ring-2 ring-indigo-500" : ""
           }`}
         >
           <div>
             {/* Header Block */}
             <div className="flex items-center justify-between border-b border-black/10 pb-3 mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#ec4899]/10 text-[#ec4899] rounded-xl">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                   <Brain className="w-5 h-5" />
                 </div>
                 <div>
@@ -355,7 +355,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-black/50 bg-black/5 px-2 py-0.5 rounded uppercase">
+              <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded uppercase font-semibold">
                 academic
               </span>
             </div>
@@ -372,10 +372,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     setRoute("notes");
                     setPromptText(`Prof spent 45 min on SN2 mechanisms. Primary alkyl halide reacts with strong nucleophile like OH- in bimolecular transition state. Inversion of stereochemistry occurs (Walden inversion). Polar aprotic solvents like DMSO favor SN2. Rate = k[substrate][nucleophile]. Steric hindrance slows it down. Tertiary halides DO NOT undergo SN2!`);
                   }}
-                  className="text-left bg-[#FAF8F5] hover:bg-[#ec4899]/10 border border-black/10 hover:border-[#ec4899]/30 p-2.5 rounded-xl transition-all cursor-pointer"
+                  className="text-left bg-[#FAF8F5] hover:bg-purple-50/70 border border-black/10 hover:border-purple-300 p-2.5 rounded-xl transition-all cursor-pointer"
                 >
                   <p className="font-semibold text-xs text-black flex items-center gap-1.5">
-                    <FlaskConical className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                    <FlaskConical className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                     <span>o-chem SN2 mechanism</span>
                   </p>
                   <span className="text-[11px] text-black/50 line-clamp-1 mt-0.5">
@@ -389,10 +389,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     setRoute("notes");
                     setPromptText(`Voice transcript: "Midterm review: demand curve shifts from non-price factors like income, preferences, substitutes. Movement ALONG demand curve is ONLY price change. Supply slopes up due to marginal opportunity cost. Price ceilings cause shortages, floors cause surpluses."`);
                   }}
-                  className="text-left bg-[#FAF8F5] hover:bg-[#ec4899]/10 border border-black/10 hover:border-[#ec4899]/30 p-2.5 rounded-xl transition-all cursor-pointer"
+                  className="text-left bg-[#FAF8F5] hover:bg-rose-50/70 border border-black/10 hover:border-rose-300 p-2.5 rounded-xl transition-all cursor-pointer"
                 >
                   <p className="font-semibold text-xs text-black flex items-center gap-1.5">
-                    <Mic className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                    <Mic className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                     <span>econ 101 memo</span>
                   </p>
                   <span className="text-[11px] text-black/50 line-clamp-1 mt-0.5">
@@ -463,11 +463,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     title={isRecording ? `Dictating live (${recordingTime}s)` : "Dictate notes (speech-to-text)"}
                     className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                       isRecording
-                        ? "bg-[#ec4899] text-white border border-[#ec4899] animate-pulse"
-                        : "bg-white hover:bg-black/5 text-black border border-black/15 shadow-2xs"
+                        ? "bg-rose-600 text-white border border-rose-600 animate-pulse"
+                        : "bg-white hover:bg-rose-50 text-black border border-black/15 shadow-2xs"
                     }`}
                   >
-                    {isRecording ? <Radio className="w-4 h-4 text-white animate-spin" /> : <Mic className="w-4 h-4 text-[#ec4899]" />}
+                    {isRecording ? <Radio className="w-4 h-4 text-white animate-spin" /> : <Mic className="w-4 h-4 text-rose-500" />}
                   </button>
                 </div>
 
@@ -479,20 +479,20 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   }}
                   placeholder="Paste messy lecture notes, whiteboard transcript, study sheet, or dictate directly into prompt..."
                   rows={5}
-                  className="w-full p-3.5 border border-black/15 rounded-xl font-medium text-xs sm:text-sm text-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black resize-y bg-[#FAF8F5] mb-2 placeholder:text-black/40"
+                  className="w-full p-3.5 border border-black/15 rounded-xl font-medium text-xs sm:text-sm text-black focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 resize-y bg-[#FAF8F5] mb-2 placeholder:text-black/40"
                 />
 
                 {isRecording && (
-                  <div className="mb-3 p-2.5 bg-[#ec4899]/10 border border-[#ec4899]/30 rounded-xl flex items-center justify-between text-xs text-black">
+                  <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs text-rose-950">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <div className="w-2 h-2 rounded-full bg-[#ec4899] animate-ping shrink-0" />
-                      <span className="font-semibold text-[#ec4899] shrink-0">Speech-to-Text:</span>
+                      <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+                      <span className="font-semibold text-rose-700 shrink-0">Speech-to-Text:</span>
                       <span className="text-black/80 italic truncate">{interimTranscript || "Listening... speak clearly into mic"}</span>
                     </div>
                     <button
                       type="button"
                       onClick={stopRecording}
-                      className="bg-black text-white px-2 py-0.5 text-[10px] font-semibold rounded shrink-0 hover:bg-[#ec4899] transition-colors cursor-pointer"
+                      className="bg-black text-white px-2 py-0.5 text-[10px] font-semibold rounded shrink-0 hover:bg-rose-700 transition-colors cursor-pointer"
                     >
                       done
                     </button>
@@ -508,7 +508,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     onClick={() => imageInputRef.current?.click()}
                     className="cursor-pointer py-3 hover:bg-black/5 rounded-lg transition-colors"
                   >
-                    <Camera className="w-7 h-7 text-black/60 mx-auto mb-1" />
+                    <Camera className="w-7 h-7 text-indigo-500 mx-auto mb-1" />
                     <p className="font-medium text-xs text-black">
                       upload whiteboard / note photo
                     </p>
@@ -549,15 +549,15 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   <div className="flex flex-col items-center gap-2">
                     {isRecording ? (
                       <div className="w-full flex flex-col items-center gap-2">
-                        <div className="flex items-center gap-2 bg-[#ec4899]/10 border border-[#ec4899] px-3.5 py-2 rounded-xl animate-pulse">
-                          <div className="w-2.5 h-2.5 rounded-full bg-[#ec4899] animate-ping" />
-                          <span className="font-semibold text-xs text-black">
+                        <div className="flex items-center gap-2 bg-rose-50 border border-rose-300 px-3.5 py-2 rounded-xl animate-pulse">
+                          <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                          <span className="font-semibold text-xs text-rose-950">
                             recording audio & dictating live: {recordingTime}s
                           </span>
                           <button
                             type="button"
                             onClick={stopRecording}
-                            className="bg-black text-white px-2.5 py-1 text-xs font-medium rounded-lg cursor-pointer hover:bg-[#ec4899] transition-colors"
+                            className="bg-black text-white px-2.5 py-1 text-xs font-medium rounded-lg cursor-pointer hover:bg-rose-700 transition-colors"
                           >
                             done
                           </button>
@@ -574,9 +574,9 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                           <button
                             type="button"
                             onClick={startRecording}
-                            className="bg-[#ec4899] hover:bg-[#db2777] text-white px-3.5 py-2 font-medium text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 font-medium text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
                           >
-                            <Mic className="w-3.5 h-3.5" /> record & dictate note
+                            <Mic className="w-3.5 h-3.5 text-white" /> record & dictate note
                           </button>
                           <button
                             type="button"
@@ -596,7 +596,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   <div className="flex items-center justify-between bg-white border border-black/15 rounded-lg p-2">
                     <span className="font-medium text-xs text-black truncate">{audioAttachment.name}</span>
                     <button onClick={removeAudio} className="text-black/50 hover:text-black p-1 cursor-pointer">
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-rose-500" />
                     </button>
                   </div>
                 )}
@@ -612,7 +612,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-[0.98] ${
               isLoading || (!promptText && files.length === 0 && !audioAttachment)
                 ? "bg-black/10 text-black/40 cursor-not-allowed"
-                : "bg-black hover:bg-[#ec4899] text-white hover:shadow-md"
+                : "bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-md"
             }`}
           >
             {isLoading && route === "notes" ? (
@@ -622,7 +622,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-[#ec4899]" />
+                <Sparkles className="w-4 h-4 text-amber-300" />
                 <span>untangle notes now</span>
               </>
             )}
@@ -634,14 +634,14 @@ export const InputPanel: React.FC<InputPanelProps> = ({
         {/* ========================================================= */}
         <div
           className={`bg-white border border-black/15 rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between transition-all ${
-            route === "chef" ? "ring-2 ring-[#ec4899]" : ""
+            route === "chef" ? "ring-2 ring-amber-500" : ""
           }`}
         >
           <div>
             {/* Header Block */}
             <div className="flex items-center justify-between border-b border-black/10 pb-3 mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#ec4899]/10 text-[#ec4899] rounded-xl">
+                <div className="p-2 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl">
                   <Utensils className="w-5 h-5" />
                 </div>
                 <div>
@@ -653,7 +653,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-black/50 bg-black/5 px-2 py-0.5 rounded uppercase">
+              <span className="text-[10px] font-mono text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded uppercase font-semibold">
                 food & budget
               </span>
             </div>
@@ -671,10 +671,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     setBudget("12.00");
                     setPromptText(`3 eggs, half onion, sharp cheddar, 2 stale flour tortillas, half jar salsa. Need quick breakfast burrito prep under 15 min!`);
                   }}
-                  className="text-left bg-[#FAF8F5] hover:bg-[#ec4899]/10 border border-black/10 hover:border-[#ec4899]/30 p-2.5 rounded-xl transition-all cursor-pointer"
+                  className="text-left bg-[#FAF8F5] hover:bg-orange-50/70 border border-black/10 hover:border-orange-300 p-2.5 rounded-xl transition-all cursor-pointer"
                 >
                   <p className="font-semibold text-xs text-black flex items-center gap-1.5">
-                    <Utensils className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                    <Utensils className="w-3.5 h-3.5 text-orange-500 shrink-0" />
                     <span>messy dorm fridge + $12</span>
                   </p>
                   <span className="text-[11px] text-black/50 line-clamp-1 mt-0.5">
@@ -689,10 +689,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     setBudget("15.00");
                     setPromptText(`Scanned receipt: Instant Ramen ($2.50), Rolled Oats ($3.20), Peanut Butter ($3.80), Eggs ($2.99), Bananas ($1.50). High-protein snack recipe!`);
                   }}
-                  className="text-left bg-[#FAF8F5] hover:bg-[#ec4899]/10 border border-black/10 hover:border-[#ec4899]/30 p-2.5 rounded-xl transition-all cursor-pointer"
+                  className="text-left bg-[#FAF8F5] hover:bg-emerald-50/70 border border-black/10 hover:border-emerald-300 p-2.5 rounded-xl transition-all cursor-pointer"
                 >
                   <p className="font-semibold text-xs text-black flex items-center gap-1.5">
-                    <Receipt className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                    <Receipt className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>target receipt + pantry</span>
                   </p>
                   <span className="text-[11px] text-black/50 line-clamp-1 mt-0.5">
@@ -706,10 +706,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             <div className="mb-4 bg-[#FAF8F5] border border-black/10 rounded-xl p-3.5">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <label className="font-semibold text-xs text-black flex items-center gap-1">
-                  <DollarSign className="w-4 h-4 text-[#ec4899]" /> dorm meal budget
+                  <DollarSign className="w-4 h-4 text-emerald-600" /> dorm meal budget
                 </label>
                 <div className="flex items-center gap-1 bg-white border border-black/15 rounded-lg px-2.5 py-0.5">
-                  <span className="font-bold text-xs text-black/60">$</span>
+                  <span className="font-bold text-xs text-emerald-700">$</span>
                   <input
                     type="text"
                     value={budget}
@@ -726,7 +726,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     type="button"
                     onClick={() => setBudget(b)}
                     className={`flex-1 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
-                      budget === b ? "bg-black text-white border-black" : "bg-white border-black/15 text-black hover:bg-black/5"
+                      budget === b ? "bg-amber-600 text-white border-amber-600" : "bg-white border-black/15 text-black hover:bg-black/5"
                     }`}
                   >
                     ${b.split(".")[0]}
@@ -773,11 +773,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     title={isRecording ? `Dictating live (${recordingTime}s)` : "Dictate items (speech-to-text)"}
                     className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                       isRecording
-                        ? "bg-[#ec4899] text-white border border-[#ec4899] animate-pulse"
-                        : "bg-white hover:bg-black/5 text-black border border-black/15 shadow-2xs"
+                        ? "bg-rose-600 text-white border border-rose-600 animate-pulse"
+                        : "bg-white hover:bg-rose-50 text-black border border-black/15 shadow-2xs"
                     }`}
                   >
-                    {isRecording ? <Radio className="w-4 h-4 text-white animate-spin" /> : <Mic className="w-4 h-4 text-[#ec4899]" />}
+                    {isRecording ? <Radio className="w-4 h-4 text-white animate-spin" /> : <Mic className="w-4 h-4 text-rose-500" />}
                   </button>
                 </div>
 
@@ -789,20 +789,20 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   }}
                   placeholder="List fridge items, pantry leftovers, grocery receipt text, or dictate directly into prompt..."
                   rows={4}
-                  className="w-full p-3.5 border border-black/15 rounded-xl font-medium text-xs sm:text-sm text-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black resize-y bg-[#FAF8F5] mb-2 placeholder:text-black/40"
+                  className="w-full p-3.5 border border-black/15 rounded-xl font-medium text-xs sm:text-sm text-black focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 resize-y bg-[#FAF8F5] mb-2 placeholder:text-black/40"
                 />
 
                 {isRecording && (
-                  <div className="mb-3 p-2.5 bg-[#ec4899]/10 border border-[#ec4899]/30 rounded-xl flex items-center justify-between text-xs text-black">
+                  <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs text-rose-950">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <div className="w-2 h-2 rounded-full bg-[#ec4899] animate-ping shrink-0" />
-                      <span className="font-semibold text-[#ec4899] shrink-0">Speech-to-Text:</span>
+                      <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+                      <span className="font-semibold text-rose-700 shrink-0">Speech-to-Text:</span>
                       <span className="text-black/80 italic truncate">{interimTranscript || "Listening... speak fridge items"}</span>
                     </div>
                     <button
                       type="button"
                       onClick={stopRecording}
-                      className="bg-black text-white px-2 py-0.5 text-[10px] font-semibold rounded shrink-0 hover:bg-[#ec4899] transition-colors cursor-pointer"
+                      className="bg-black text-white px-2 py-0.5 text-[10px] font-semibold rounded shrink-0 hover:bg-rose-700 transition-colors cursor-pointer"
                     >
                       done
                     </button>
@@ -818,7 +818,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     onClick={() => chefImageInputRef.current?.click()}
                     className="cursor-pointer py-3 hover:bg-black/5 rounded-lg transition-colors"
                   >
-                    <Camera className="w-7 h-7 text-black/60 mx-auto mb-1" />
+                    <Camera className="w-7 h-7 text-amber-500 mx-auto mb-1" />
                     <p className="font-medium text-xs text-black">
                       upload fridge or receipt photo
                     </p>
@@ -862,7 +862,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-[0.98] ${
               isLoading || (!promptText && files.length === 0 && !audioAttachment)
                 ? "bg-black/10 text-black/40 cursor-not-allowed"
-                : "bg-black hover:bg-[#ec4899] text-white hover:shadow-md"
+                : "bg-amber-600 hover:bg-amber-700 text-white hover:shadow-md"
             }`}
           >
             {isLoading && route === "chef" ? (
@@ -872,7 +872,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
               </>
             ) : (
               <>
-                <Utensils className="w-4 h-4 text-[#ec4899]" />
+                <Utensils className="w-4 h-4 text-amber-200" />
                 <span>untangle recipes now</span>
               </>
             )}

@@ -412,11 +412,11 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
         <div id="history-search-bar" className="space-y-2 mb-3">
           <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-black">
             <span className="flex items-center gap-1.5">
-              <Search className="w-3.5 h-3.5 text-[#ec4899] stroke-[3]" />
+              <Search className="w-3.5 h-3.5 text-indigo-600 stroke-[3]" />
               <span>Search Saved Vault</span>
             </span>
             {search.trim() ? (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/15 text-[#ec4899] font-bold border border-[#ec4899]/30">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold border border-indigo-200">
                 {filtered.length} of {history.length} {filtered.length === 1 ? "match" : "matches"}
               </span>
             ) : (
@@ -426,7 +426,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             )}
           </div>
 
-          <div className="relative flex items-center bg-[#FFF4E0] border-3 border-black px-3 py-2 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] focus-within:ring-2 focus-within:ring-[#ec4899] transition-all">
+          <div className="relative flex items-center bg-[#FFF4E0] border-3 border-black px-3 py-2 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
             <Search className="w-4 h-4 text-black/70 stroke-[2.5] shrink-0 mr-2" />
             <input
               id="history-search-input"
@@ -473,7 +473,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
           {allUniqueTags.length > 0 && (
             <div className="flex items-center gap-1 overflow-x-auto pt-0.5 pb-1 no-scrollbar text-[10px]">
               <span className="font-bold text-black/50 uppercase tracking-tight shrink-0 flex items-center gap-1 pr-1">
-                <Tag className="w-3 h-3 text-[#ec4899]" />
+                <Tag className="w-3 h-3 text-fuchsia-600" />
                 <span>Keywords:</span>
               </span>
               {allUniqueTags.slice(0, 6).map(({ tag }) => {
@@ -492,8 +492,8 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                     }}
                     className={`px-2 py-0.5 border rounded-sm font-bold cursor-pointer transition-all shrink-0 ${
                       isMatchingQuery
-                        ? "bg-[#ec4899] text-white border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
-                        : "bg-white hover:bg-pink-50 text-black/80 border-black/20 hover:border-black"
+                        ? "bg-indigo-600 text-white border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                        : "bg-white hover:bg-indigo-50 text-black/80 border-black/20 hover:border-black"
                     }`}
                     title={`Filter by tag keyword "${tag}"`}
                   >
@@ -674,7 +674,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
               <button
                 onClick={handleApplyBulkTag}
                 disabled={!bulkTagInput.trim()}
-                className="bg-[#ec4899] disabled:opacity-50 text-white font-black text-xs uppercase px-3 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                className="bg-black hover:bg-indigo-600 disabled:opacity-50 text-white font-black text-xs uppercase px-3 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer transition-colors"
               >
                 Apply
               </button>
@@ -682,7 +682,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
 
             <div className="flex flex-wrap items-center gap-1">
               <span className="text-[9px] font-bold text-gray-600 uppercase flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-[#ec4899] fill-[#ec4899]" />
+                <Sparkles className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
                 <span>Suggested:</span>
               </span>
               {bulkSuggestedTags.map((sugg) => (
@@ -945,7 +945,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                             <div className="pt-1.5 border-t border-black/15">
                               <div className="flex items-center justify-between text-[9px] font-black uppercase text-black/70 mb-1">
                                 <span className="flex items-center gap-1">
-                                  <Sparkles className="w-2.5 h-2.5 text-[#ec4899] fill-[#ec4899]" />
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
                                   <span>Suggested for this note:</span>
                                 </span>
                                 <span className="text-[8px] font-mono text-gray-500 lowercase">
@@ -1020,9 +1020,9 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                           title="Export and download as PDF file"
                         >
                           {downloadingPdfId === item.id ? (
-                            <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                            <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent animate-spin rounded-full" />
                           ) : (
-                            <FileDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                            <FileDown className="w-3.5 h-3.5 text-rose-600" />
                           )}
                           <span className="text-[10px] font-bold">PDF</span>
                         </button>
@@ -1036,7 +1036,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                           className="bg-white hover:bg-black/5 text-black border border-black px-2 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex items-center gap-1"
                           title="Send to other apps via Web Share API"
                         >
-                          <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+                          <Share2 className="w-3.5 h-3.5 text-blue-600" />
                           <span className="text-[10px] font-bold">SHARE</span>
                         </button>
 

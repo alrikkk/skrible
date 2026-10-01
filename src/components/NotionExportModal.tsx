@@ -140,7 +140,7 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
 
           {/* Modal Header */}
           <div className="flex items-center gap-2.5 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/20 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
@@ -163,7 +163,7 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
                   : "text-black/60 hover:text-black"
               }`}
             >
-              <Key className="w-3.5 h-3.5 text-[#ec4899]" />
+              <Key className="w-3.5 h-3.5 text-amber-600" />
               <span>Notion API Integration</span>
             </button>
             <button
@@ -178,7 +178,7 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
                   : "text-black/60 hover:text-black"
               }`}
             >
-              <Globe className="w-3.5 h-3.5 text-[#ec4899]" />
+              <Globe className="w-3.5 h-3.5 text-blue-600" />
               <span>Webhook (Zapier/Make)</span>
             </button>
           </div>
@@ -214,11 +214,11 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
                     value={notionToken}
                     onChange={(e) => setNotionToken(e.target.value)}
                     placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-3.5 py-2.5 border border-black/15 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#ec4899] bg-white"
+                    className="w-full px-3.5 py-2.5 border border-black/15 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                     required
                   />
                   <p className="text-[10px] text-black/50 mt-1">
-                    Created at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline hover:text-[#ec4899]">notion.so/my-integrations</a>
+                    Created at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline hover:text-purple-600">notion.so/my-integrations</a>
                   </p>
                 </div>
 
@@ -231,7 +231,7 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
                     value={pageId}
                     onChange={(e) => setPageId(e.target.value)}
                     placeholder="e.g., 32-character ID or page URL"
-                    className="w-full px-3.5 py-2.5 border border-black/15 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#ec4899] bg-white"
+                    className="w-full px-3.5 py-2.5 border border-black/15 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                     required
                   />
                   <p className="text-[10px] text-black/50 mt-1">
@@ -252,7 +252,7 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
                   value={webhookUrl}
                   onChange={(e) => setWebhookUrl(e.target.value)}
                   placeholder="https://hooks.zapier.com/hooks/catch/... or https://hook.eu1.make.com/..."
-                  className="w-full px-3.5 py-2.5 border border-black/15 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#ec4899] bg-white"
+                  className="w-full px-3.5 py-2.5 border border-black/15 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                   required
                 />
                 <p className="text-[10px] text-black/50 mt-1">
@@ -268,7 +268,7 @@ export const NotionExportModal: React.FC<NotionExportModalProps> = ({
                 id="rememberNotion"
                 checked={rememberConfig}
                 onChange={(e) => setRememberConfig(e.target.checked)}
-                className="w-4 h-4 rounded text-[#ec4899] focus:ring-[#ec4899] border-gray-300 cursor-pointer"
+                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-gray-300 cursor-pointer"
               />
               <label htmlFor="rememberNotion" className="text-xs text-black/70 font-medium cursor-pointer select-none">
                 Remember integration settings for future exports

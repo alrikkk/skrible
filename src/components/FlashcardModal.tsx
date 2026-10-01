@@ -108,13 +108,13 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
           {/* Header */}
           <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-4 mb-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-[#ec4899]/10 text-[#ec4899] rounded-xl border border-[#ec4899]/20">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-200 dark:border-indigo-800">
                 <Layers className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="font-bold text-base text-black dark:text-white leading-tight flex items-center gap-1.5">
                   <span>cram flashcards</span>
-                  <span className="text-[10px] font-mono uppercase bg-[#ec4899]/15 text-[#ec4899] font-bold px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-mono uppercase bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
                     active study
                   </span>
                 </h3>
@@ -128,11 +128,11 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
               <button
                 type="button"
                 onClick={handleShuffle}
-                className="p-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 border border-black/15 dark:border-white/20 rounded-xl cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-2xs"
+                className="p-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 border border-black/15 dark:border-white/20 rounded-xl cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-2xs hover:border-purple-400"
                 title="Shuffle card order"
                 aria-label="Shuffle cards"
               >
-                <Shuffle className="w-4 h-4 text-[#ec4899]" />
+                <Shuffle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               </button>
 
               <button
@@ -150,7 +150,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
           {/* Progress Bar with animated fill */}
           <div className="w-full bg-black/5 dark:bg-white/10 rounded-full h-2 mb-5 overflow-hidden">
             <motion.div
-              className="bg-[#ec4899] h-full rounded-full"
+              className="bg-indigo-600 h-full rounded-full"
               initial={false}
               animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 0.3, ease: "easeOut" }}
@@ -179,8 +179,8 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
                   <span className="font-bold text-[11px] px-2.5 py-0.5 rounded-full border border-black/15 dark:border-white/20 bg-white dark:bg-[#1a1a1a] text-black dark:text-white shadow-2xs">
                     {current.tag || "CRAM KEY"}
                   </span>
-                  <span className="font-semibold text-xs text-black/60 dark:text-white/60 flex items-center gap-1.5 hover:text-[#ec4899] transition-colors">
-                    <RotateCw className="w-3.5 h-3.5 text-[#ec4899]" />
+                  <span className="font-semibold text-xs text-black/60 dark:text-white/60 flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    <RotateCw className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>tap to flip</span>
                   </span>
                 </div>
@@ -196,26 +196,26 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
 
                 <div className="flex items-center justify-between text-[11px] text-black/40 dark:text-white/40 pt-2 border-t border-black/5 dark:border-white/5">
                   <span className="font-mono">Shortcuts: Space to flip • ← / → navigate</span>
-                  <span className="font-semibold text-[#ec4899]">Reveal answer →</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">Reveal answer →</span>
                 </div>
               </div>
 
               {/* BACK: ANSWER */}
               <div
-                className="absolute inset-0 p-6 rounded-2xl border-2 border-[#ec4899]/40 bg-[#ec4899]/10 dark:bg-[#ec4899]/15 text-black dark:text-white flex flex-col justify-between [backface-visibility:hidden] [transform:rotateY(180deg)] shadow-sm"
+                className="absolute inset-0 p-6 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 text-black dark:text-white flex flex-col justify-between [backface-visibility:hidden] [transform:rotateY(180deg)] shadow-sm"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-[11px] px-2.5 py-0.5 rounded-full bg-[#ec4899] text-white shadow-2xs">
+                  <span className="font-bold text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-2xs">
                     ANSWER
                   </span>
                   <span className="font-semibold text-xs text-black/60 dark:text-white/60 flex items-center gap-1.5">
-                    <RotateCw className="w-3.5 h-3.5 text-[#ec4899]" />
+                    <RotateCw className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>tap to flip back</span>
                   </span>
                 </div>
 
                 <div className="my-auto text-center py-4 px-2">
-                  <p className="text-[11px] font-mono text-[#ec4899] uppercase tracking-widest mb-1.5 font-bold">
+                  <p className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1.5 font-bold">
                     untangled takeaway
                   </p>
                   <h4 className="text-base sm:text-lg font-semibold text-black dark:text-white leading-relaxed">
@@ -223,9 +223,9 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
                   </h4>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-black/50 dark:text-white/50 pt-2 border-t border-[#ec4899]/20">
+                <div className="flex items-center justify-between text-[11px] text-black/50 dark:text-white/50 pt-2 border-t border-indigo-200/60 dark:border-indigo-800/60">
                   <span className="font-mono">Press 'M' to mark mastered</span>
-                  <span className="font-semibold text-[#ec4899]">← Back to question</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">← Back to question</span>
                 </div>
               </div>
             </motion.div>
@@ -236,7 +236,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({ flashcards: init
             <button
               type="button"
               onClick={handlePrev}
-              className="bg-white dark:bg-[#2a2a2a] hover:bg-black/5 dark:hover:bg-white/10 text-black dark:text-white border border-black/15 dark:border-white/20 px-4 py-2.5 rounded-xl font-medium text-xs cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shadow-2xs hover:border-[#ec4899]"
+              className="bg-white dark:bg-[#2a2a2a] hover:bg-black/5 dark:hover:bg-white/10 text-black dark:text-white border border-black/15 dark:border-white/20 px-4 py-2.5 rounded-xl font-medium text-xs cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shadow-2xs hover:border-indigo-400"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>prev</span>

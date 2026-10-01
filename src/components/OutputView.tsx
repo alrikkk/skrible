@@ -80,6 +80,7 @@ interface OutputViewProps {
   isSaved: boolean;
   onNewUntangle: () => void;
   onUpdateMarkdown?: (updatedMarkdown: string) => void;
+  isReadOnly?: boolean;
 }
 
 interface ChefStats {
@@ -243,6 +244,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   isSaved,
   onNewUntangle,
   onUpdateMarkdown,
+  isReadOnly = false,
 }) => {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
@@ -832,6 +834,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
         setIsGeneratingShareUrl(true);
         const authHeaders = await getAuthHeaders();
         const originUrl = typeof window !== "undefined" ? window.location.origin : "";
+        const noteContent = displayMarkdown || activeMarkdown;
 
         const res = await fetch("/api/share-note", {
           method: "POST",
@@ -841,7 +844,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           },
           body: JSON.stringify({
             title: recipeTitle || (routeDetected === "chef" ? "Dorm Chef Recipe" : "Untangled Notes"),
-            content: displayMarkdown || activeMarkdown,
+            content: noteContent,
             routeDetected,
             budget,
             originUrl,
@@ -860,14 +863,34 @@ export const OutputView: React.FC<OutputViewProps> = ({
         try {
           await navigator.clipboard.writeText(data.shareUrl);
           setShared(true);
-          setShareToast("Public share link generated via Supabase! Copied to clipboard.");
+          setShareToast("Shareable link created & copied to clipboard! Other students can view this note in view-only mode without editing access.");
           setTimeout(() => setShared(false), 3500);
         } catch {
-          setShareToast("Public share link generated via Supabase! Ready to share with peers.");
+          setShareToast("Shareable link created! Other students can view this note in view-only mode without editing access.");
         }
       } catch (err: any) {
-        console.error("Failed to generate share URL via Supabase backend:", err);
-        setShareToast(err.message || "Failed to generate public share link.");
+        console.warn("Generating resilient client-side shareable link:", err);
+        const originUrl = typeof window !== "undefined" ? window.location.origin : "";
+        const fallbackId = `sn_${Math.random().toString(36).slice(2, 10)}`;
+        const notePayload = {
+          title: recipeTitle || (routeDetected === "chef" ? "Dorm Chef Recipe" : "Untangled Notes"),
+          content: displayMarkdown || activeMarkdown,
+          routeDetected,
+          budget,
+        };
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(notePayload))));
+        const fallbackUrl = `${originUrl}/?note_data=${encoded}&share=${fallbackId}`;
+        activeUrl = fallbackUrl;
+        setPublicShareUrl(fallbackUrl);
+
+        try {
+          await navigator.clipboard.writeText(fallbackUrl);
+          setShared(true);
+          setShareToast("Shareable link created & copied to clipboard! Other students can view this note in view-only mode without editing access.");
+          setTimeout(() => setShared(false), 3500);
+        } catch {
+          setShareToast("Shareable link created! Other students can view this note in view-only mode without editing access.");
+        }
       } finally {
         setIsGeneratingShareUrl(false);
       }
@@ -876,7 +899,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       try {
         await navigator.clipboard.writeText(activeUrl);
         setShared(true);
-        setShareToast("Share link copied to clipboard!");
+        setShareToast("Shareable link copied to clipboard! Ready to share with students for view-only access.");
         setTimeout(() => setShared(false), 3000);
       } catch {
         // Fallback
@@ -908,8 +931,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
     const el = document.getElementById(`recipe-step-${stepNum}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("ring-2", "ring-[#ec4899]");
-      setTimeout(() => el.classList.remove("ring-2", "ring-[#ec4899]"), 1500);
+      el.classList.add("ring-2", "ring-indigo-500");
+      setTimeout(() => el.classList.remove("ring-2", "ring-indigo-500"), 1500);
     }
   };
 
@@ -1012,18 +1035,28 @@ export const OutputView: React.FC<OutputViewProps> = ({
       <div id="output-toolbar" className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6 print:hidden">
         
         <div className="flex flex-wrap items-center gap-2">
-          <span className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5 shadow-2xs">
+          <span
+            className={`border rounded-full font-semibold text-xs px-3 py-1 flex items-center gap-1.5 shadow-2xs ${
+              routeDetected === "chef"
+                ? "bg-amber-50 text-amber-900 border-amber-300"
+                : "bg-indigo-50 text-indigo-900 border-indigo-200"
+            }`}
+          >
             {isStreaming ? (
               <>
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ec4899] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ec4899]" />
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${routeDetected === "chef" ? "bg-amber-500" : "bg-indigo-500"}`} />
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${routeDetected === "chef" ? "bg-amber-600" : "bg-indigo-600"}`} />
                 </span>
                 <span>streaming {routeDetected === "chef" ? "recipe..." : "notes..."}</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5" />
+                {routeDetected === "chef" ? (
+                  <Utensils className="w-3.5 h-3.5 text-amber-600" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                )}
                 <span>{routeDetected === "chef" ? "dorm chef recipe" : "untangled notes"}</span>
               </>
             )}
@@ -1036,7 +1069,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             title={`${readingStats.words.toLocaleString()} words • ${readingStats.readingTime} (based on 200 wpm) • ${readingStats.complexity} complexity`}
           >
             <span className="flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-black/50 shrink-0" />
+              <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               <span className="font-semibold text-black">{readingStats.words.toLocaleString()}</span>
               <span className="text-black/60">{readingStats.words === 1 ? "word" : "words"}</span>
             </span>
@@ -1044,7 +1077,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             <span className="text-black/25 select-none font-bold">•</span>
 
             <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+              <Clock className="w-3.5 h-3.5 text-sky-500 shrink-0" />
               <span className="font-semibold text-black">{readingStats.readingTime}</span>
             </span>
 
@@ -1063,25 +1096,35 @@ export const OutputView: React.FC<OutputViewProps> = ({
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
 
-          {/* Edit Markdown Mode Button */}
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
-              isEditing
-                ? "bg-[#ec4899] text-white border-[#ec4899]"
-                : isManuallyEdited
-                ? "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 font-bold"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
-            }`}
-            title={isEditing ? "View rendered output" : "Manually refine markdown notes or recipe before saving to vault"}
-          >
-            {isEditing ? (
-              <Eye className="w-3.5 h-3.5" />
-            ) : (
-              <Pencil className="w-3.5 h-3.5 text-[#ec4899]" />
-            )}
-            <span>{isEditing ? "preview" : isManuallyEdited ? "edit (refined)" : "edit markdown"}</span>
-          </button>
+          {/* Edit Markdown Mode Button (or View-Only indicator if read-only) */}
+          {isReadOnly ? (
+            <span
+              className="flex items-center gap-1.5 bg-blue-50 text-blue-900 border border-blue-200 px-3 py-1.5 text-xs font-semibold rounded-xl select-none"
+              title="View-only access: Editing is disabled for peer-shared notes. You can save this note to your vault to make your own edits."
+            >
+              <Eye className="w-3.5 h-3.5 text-blue-600" />
+              <span>view-only mode</span>
+            </span>
+          ) : (
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+                isEditing
+                  ? "bg-amber-600 text-white border-amber-600"
+                  : isManuallyEdited
+                  ? "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 font-bold"
+                  : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-amber-400"
+              }`}
+              title={isEditing ? "View rendered output" : "Manually refine markdown notes or recipe before saving to vault"}
+            >
+              {isEditing ? (
+                <Eye className="w-3.5 h-3.5" />
+              ) : (
+                <Pencil className="w-3.5 h-3.5 text-amber-600" />
+              )}
+              <span>{isEditing ? "preview" : isManuallyEdited ? "edit (refined)" : "edit markdown"}</span>
+            </button>
+          )}
 
           {/* Copy to Clipboard Button - Primary Action */}
           <button
@@ -1091,7 +1134,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               copied
                 ? "bg-emerald-50 text-emerald-800 border border-emerald-300 ring-1 ring-emerald-400 font-bold"
-                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-violet-400"
             }`}
             title="Copy entire generated markdown content to clipboard for easy pasting into other applications"
             aria-label="Copy to Clipboard"
@@ -1103,7 +1146,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-[#ec4899]" />
+                <Copy className="w-3.5 h-3.5 text-violet-600" />
                 <span>copy to clipboard</span>
               </>
             )}
@@ -1118,15 +1161,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               pdfExportSuccess
                 ? "bg-rose-50 text-rose-800 border border-rose-300 ring-1 ring-rose-400 font-bold"
-                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-rose-400"
             }`}
             title="Download formatted document as a clean PDF file"
             aria-label="Export to PDF"
           >
             {isExportingPdf ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-                <span className="text-[#ec4899]">exporting pdf...</span>
+                <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent animate-spin rounded-full" />
+                <span className="text-rose-600">exporting pdf...</span>
               </>
             ) : pdfExportSuccess ? (
               <>
@@ -1135,7 +1178,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
               </>
             ) : (
               <>
-                <FileDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                <FileDown className="w-3.5 h-3.5 text-rose-600" />
                 <span>export to pdf</span>
               </>
             )}
@@ -1144,10 +1187,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
           {/* Print Clean Document Button */}
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs hover:border-[#ec4899]"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 hover:border-slate-400 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs"
             title="Print clean document or save to PDF (Ctrl+P / Cmd+P)"
           >
-            <Printer className="w-3.5 h-3.5 text-black/60" />
+            <Printer className="w-3.5 h-3.5 text-slate-600" />
             <span>print</span>
           </button>
 
@@ -1160,19 +1203,19 @@ export const OutputView: React.FC<OutputViewProps> = ({
               isLoadingSummary
                 ? "bg-black/5 text-black/60 border-black/15 cursor-wait"
                 : summaryData && !isSummaryDismissed
-                ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/40 hover:bg-[#ec4899]/20"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+                ? "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
+                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-amber-400"
             }`}
             title="Generate a concise bulleted executive summary of this content with AI"
           >
             {isLoadingSummary ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-                <span className="text-[#ec4899]">summarizing...</span>
+                <div className="w-3.5 h-3.5 border-2 border-amber-500 border-t-transparent animate-spin rounded-full" />
+                <span className="text-amber-600">summarizing...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5 text-[#ec4899]" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>{summaryData && !isSummaryDismissed ? "summary active" : "summarize"}</span>
               </>
             )}
@@ -1182,63 +1225,90 @@ export const OutputView: React.FC<OutputViewProps> = ({
           <button
             onClick={handleTTS}
             disabled={isLoadingAudio}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer hover:border-[#ec4899]"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 hover:border-purple-400 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
             title="Listen to content with high quality audio"
           >
             {isLoadingAudio ? (
-              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+              <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent animate-spin rounded-full" />
             ) : isPlayingAudio ? (
-              <VolumeX className="w-3.5 h-3.5 text-[#ec4899]" />
+              <VolumeX className="w-3.5 h-3.5 text-purple-600" />
             ) : (
-              <Volume2 className="w-3.5 h-3.5 text-[#ec4899]" />
+              <Volume2 className="w-3.5 h-3.5 text-purple-600" />
             )}
             <span>{isPlayingAudio ? "stop audio" : "listen"}</span>
           </button>
 
-          {/* Share Note Button */}
+          {/* Generate Shareable Link Button */}
           <button
-            id="generate-share-link-button"
+            id="generate-shareable-link-button"
+            data-testid="generate-shareable-link"
             onClick={handleShare}
             disabled={isGeneratingShareUrl}
             className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               shared || publicShareUrl
-                ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
-                : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-[#ec4899]"
+                ? "bg-blue-50 text-blue-900 border border-blue-300 font-bold"
+                : "bg-white hover:bg-blue-50/50 text-black border-black/15 hover:border-blue-400"
             }`}
-            title="Generate unique public URL to share note with study peers"
+            title="Generate a public view-only URL using current note content so other students can view this without editing access"
+            aria-label="Generate Shareable Link"
           >
             {isGeneratingShareUrl ? (
-              <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent animate-spin rounded-full" />
+                <span className="text-blue-700">generating link...</span>
+              </>
             ) : shared ? (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+              <>
+                <Check className="w-3.5 h-3.5 text-blue-600 stroke-[2.5]" />
+                <span className="text-blue-900">shareable link copied!</span>
+              </>
             ) : (
-              <Share2 className="w-3.5 h-3.5 text-[#ec4899]" />
+              <>
+                <Globe className="w-3.5 h-3.5 text-blue-600" />
+                <span>generate shareable link</span>
+              </>
             )}
-            <span>{isGeneratingShareUrl ? "generating link..." : shared ? "link copied!" : "share note"}</span>
           </button>
 
           {publicShareUrl && (
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(publicShareUrl);
-                setShared(true);
-                setShareToast("Unique public URL copied to clipboard!");
-                setTimeout(() => setShared(false), 2500);
-              }}
-              className="flex items-center gap-1.5 bg-[#ec4899]/10 hover:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
-              title="Copy active public URL to clipboard"
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              <span>copy link</span>
-            </button>
+            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-950 px-3 py-1 text-xs rounded-xl shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 bg-blue-100 border border-blue-300 px-1.5 py-0.5 rounded font-mono">
+                view-only link
+              </span>
+              <span className="font-mono text-[11px] max-w-[120px] sm:max-w-[200px] truncate select-all font-semibold">
+                {publicShareUrl}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(publicShareUrl);
+                  setShared(true);
+                  setShareToast("Shareable view-only link copied to clipboard!");
+                  setTimeout(() => setShared(false), 2500);
+                }}
+                className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold transition-colors cursor-pointer"
+                title="Copy shareable link"
+              >
+                {shared ? "copied!" : "copy"}
+              </button>
+              <a
+                href={publicShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 text-blue-700 hover:text-blue-950 transition-colors"
+                title="Open public view-only page in new tab"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           )}
 
           <button
             onClick={() => setIsShareModalOpen(true)}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs hover:border-[#ec4899]"
+            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 hover:border-teal-400 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer shadow-2xs"
             title="Open all sharing & export options (WhatsApp, Telegram, Mail, Twitter, .md file)"
           >
-            <ExternalLink className="w-3.5 h-3.5 text-black/60" />
+            <ExternalLink className="w-3.5 h-3.5 text-teal-600" />
             <span className="hidden sm:inline">send options</span>
           </button>
 
@@ -1249,12 +1319,12 @@ export const OutputView: React.FC<OutputViewProps> = ({
               }}
               className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
                 isServingModified
-                  ? "bg-[#ec4899] text-white border-[#ec4899]"
-                  : "bg-white hover:bg-black/5 text-black border-black/15"
+                  ? "bg-orange-600 text-white border-orange-600"
+                  : "bg-white hover:bg-black/5 text-black border-black/15 hover:border-orange-400"
               }`}
               title="Adjust serving size and automatically recalculate ingredient quantities"
             >
-              <Users className="w-3.5 h-3.5" />
+              <Users className="w-3.5 h-3.5 text-orange-600" />
               <span>
                 {currentServings} {currentServings === 1 ? "serving" : "servings"}
                 {isServingModified && ` (${Math.round(servingMultiplier * 100) / 100}x)`}
@@ -1267,10 +1337,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
               onClick={() => {
                 document.getElementById("recipe-grocery-list")?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="flex items-center gap-1.5 bg-[#ec4899]/10 hover:bg-[#ec4899]/20 text-[#ec4899] border border-[#ec4899]/30 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
               title="Jump to interactive grocery list"
             >
-              <ShoppingCart className="w-3.5 h-3.5" />
+              <ShoppingCart className="w-3.5 h-3.5 text-teal-600" />
               <span>grocery list ({ingredientsList.length})</span>
             </button>
           )}
@@ -1318,18 +1388,18 @@ export const OutputView: React.FC<OutputViewProps> = ({
           {routeDetected === "notes" && (
             <button
               onClick={() => onGenerateFlashcards(activeMarkdown)}
-              className="flex items-center gap-1.5 bg-[#ec4899] hover:bg-[#db2777] text-white border border-[#ec4899] px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
             >
-              <Layers className="w-3.5 h-3.5" /> flashcards
+              <Layers className="w-3.5 h-3.5 text-indigo-100" /> flashcards
             </button>
           )}
 
           <button
             onClick={() => setIsNotionModalOpen(true)}
-            className="flex items-center gap-1.5 bg-white hover:bg-stone-50 text-black border border-black/15 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:border-[#ec4899]"
+            className="flex items-center gap-1.5 bg-white hover:bg-stone-50 text-black border border-black/15 hover:border-purple-400 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
             title="Export to Notion page or webhook"
           >
-            <Send className="w-3.5 h-3.5 text-[#ec4899]" />
+            <Send className="w-3.5 h-3.5 text-purple-600" />
             <span>Export to Notion</span>
           </button>
 
@@ -1339,10 +1409,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
             className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
               isSaved
                 ? "bg-black/5 text-black/40 border-black/10 cursor-default"
-                : "bg-black hover:bg-[#ec4899] text-white border-black cursor-pointer shadow-xs"
+                : "bg-black hover:bg-stone-800 text-white border-black cursor-pointer shadow-xs"
             }`}
           >
-            <Bookmark className="w-3.5 h-3.5" />
+            <Bookmark className="w-3.5 h-3.5 text-amber-400" />
             {isSaved ? "saved" : "save to vault"}
           </button>
 
@@ -1433,7 +1503,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       {/* CATEGORIZATION TAGS BAR */}
       <div id="category-tags-bar" className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-black/70 mr-1 shrink-0">
-          <Tag className="w-3.5 h-3.5 text-[#ec4899]" />
+          <Tag className="w-3.5 h-3.5 text-fuchsia-600" />
           <span>Categorize:</span>
         </div>
 
@@ -1448,9 +1518,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 onClick={() => toggleTag(tag)}
                 className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
                   isSelected
-                    ? "bg-[#ec4899] text-white border-[#ec4899] font-semibold shadow-2xs"
+                    ? "bg-fuchsia-700 text-white border-fuchsia-700 font-semibold shadow-2xs"
                     : smartMatch
-                    ? "bg-amber-50 text-black border-amber-300 hover:border-[#ec4899] hover:bg-pink-50 font-medium"
+                    ? "bg-amber-50 text-black border-amber-300 hover:border-amber-500 hover:bg-amber-100/50 font-medium"
                     : "bg-white text-black/70 border-black/15 hover:border-black/30 hover:bg-black/5 font-medium"
                 }`}
                 title={smartMatch ? `Auto-detected from note: ${smartMatch.categoryLabel}` : undefined}
@@ -1481,11 +1551,11 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 value={customTagInput}
                 onChange={(e) => setCustomTagInput(e.target.value)}
                 placeholder="tag name..."
-                className="text-xs px-2 py-0.5 border border-[#ec4899] rounded-lg focus:outline-none bg-white text-black w-24"
+                className="text-xs px-2 py-0.5 border border-fuchsia-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-fuchsia-500 bg-white text-black w-24"
               />
               <button
                 type="submit"
-                className="text-[11px] bg-[#ec4899] text-white px-2 py-0.5 rounded-lg font-semibold cursor-pointer"
+                className="text-[11px] bg-fuchsia-600 text-white px-2 py-0.5 rounded-lg font-semibold cursor-pointer hover:bg-fuchsia-700"
               >
                 add
               </button>
@@ -1515,7 +1585,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
         <div className="mb-6 bg-[#FAF8F5] border border-black/15 rounded-2xl p-4 sm:p-5 shadow-xs font-sans">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-3.5 mb-3.5">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
                 <Receipt className="w-4 h-4" />
               </div>
               <div>
@@ -1533,7 +1603,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
             <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
               {chefStats.costPerServing && (
-                <span className="bg-[#ec4899] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5">
+                <span className="bg-orange-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5">
                   <Utensils className="w-3.5 h-3.5" />
                   <span>{chefStats.costPerServing}</span>
                 </span>
@@ -1558,7 +1628,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             {chefStats.costPerServing && (
               <div className="bg-white border border-black/10 rounded-xl p-3 shadow-2xs">
                 <span className="text-[10px] text-black/50 font-semibold block mb-0.5">Cost / Serving</span>
-                <span className="text-sm sm:text-base font-bold text-[#ec4899]">{chefStats.costPerServing}</span>
+                <span className="text-sm sm:text-base font-bold text-emerald-700">{chefStats.costPerServing}</span>
               </div>
             )}
             {chefStats.totalCost && (
@@ -1599,7 +1669,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
                     {currentServings} {currentServings === 1 ? "serving" : "servings"}
                   </span>
                   {isServingModified && (
-                    <span className="text-[10px] text-[#ec4899] font-mono font-bold">
+                    <span className="text-[10px] text-orange-600 font-mono font-bold">
                       ({Math.round(servingMultiplier * 100) / 100}x)
                     </span>
                   )}
@@ -1693,7 +1763,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer border ${
             copied
               ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-              : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-[#ec4899]"
+              : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-violet-400"
           }`}
           title="Copy entire markdown content to clipboard"
           aria-label="Copy entire markdown to clipboard"
@@ -1705,7 +1775,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             </>
           ) : (
             <>
-              <Copy className="w-3 h-3 text-[#ec4899]" />
+              <Copy className="w-3 h-3 text-violet-600" />
               <span>copy to clipboard</span>
             </>
           )}
@@ -1742,15 +1812,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
                     isIngredientSection
                       ? "border-emerald-500 bg-emerald-50/50"
                       : isStepSection
-                      ? "border-[#ec4899] bg-pink-50/40"
-                      : "border-[#ec4899]"
+                      ? "border-amber-500 bg-amber-50/40"
+                      : "border-indigo-500 bg-indigo-50/30"
                   }`}
                 >
                   <span className="flex-1 min-w-0">{children}</span>
                   {isIngredientSection && (
                     <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                       {isServingModified && (
-                        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[#ec4899]/15 text-[#ec4899] font-bold border border-[#ec4899]/30">
+                        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-orange-50 text-orange-700 font-bold border border-orange-200">
                           {Math.round(servingMultiplier * 100) / 100}x Scaled
                         </span>
                       )}
@@ -1760,7 +1830,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
                     </div>
                   )}
                   {isStepSection && (
-                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-pink-100 text-[#ec4899] font-bold tracking-wider border border-[#ec4899]/30 shrink-0">
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold tracking-wider border border-amber-300/70 shrink-0">
                       Cook Steps
                     </span>
                   )}
@@ -1804,11 +1874,11 @@ export const OutputView: React.FC<OutputViewProps> = ({
                       <div className="flex items-start gap-2.5 flex-1 min-w-0">
                         {props.stepIndex ? (
                           <span className="bg-black text-white px-2.5 py-0.5 rounded-lg text-xs font-bold font-mono tracking-tight shrink-0 mt-0.5 flex items-center gap-1 shadow-2xs">
-                            <Utensils className="w-3 h-3 text-[#ec4899]" />
+                            <Utensils className="w-3 h-3 text-amber-400" />
                             <span>Step {props.stepIndex}</span>
                           </span>
                         ) : (
-                          <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
+                          <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
                         )}
                         <div className="flex-1 leading-relaxed text-black/90">{children}</div>
                       </div>
@@ -1816,7 +1886,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
                       {/* Detected time pill if present */}
                       {detectedTime && (
                         <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-black/60 bg-black/5 px-2 py-0.5 rounded-md shrink-0 self-start border border-black/10">
-                          <Clock className="w-3 h-3 text-[#ec4899]" />
+                          <Clock className="w-3 h-3 text-sky-600" />
                           <span>{detectedTime.label}</span>
                         </span>
                       )}
@@ -1849,7 +1919,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
                   whileHover={{ scale: 1.006, transition: { duration: 0.15 } }}
                   className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 hover:border-black/25 p-3.5 rounded-xl font-medium text-sm text-black/90 transition-colors shadow-2xs"
                 >
-                  <span className="inline-block w-2 h-2 rounded-full bg-[#ec4899] mt-2 shrink-0" />
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
                   <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
                     <span className="leading-relaxed">{children}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -1863,7 +1933,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
                         </span>
                       )}
                       {isServingModified && origScaleInfo?.wasScaled && origScaleInfo?.scaledQuantity && (
-                        <span className="text-[11px] font-mono text-[#ec4899] bg-[#ec4899]/10 border border-[#ec4899]/25 px-1.5 py-0.5 rounded inline-flex items-center gap-1 font-semibold">
+                        <span className="text-[11px] font-mono text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded inline-flex items-center gap-1 font-semibold">
                           orig: {origScaleInfo.scaledQuantity}
                         </span>
                       )}
@@ -1904,13 +1974,13 @@ export const OutputView: React.FC<OutputViewProps> = ({
             blockquote: ({ children }) => (
               <motion.blockquote
                 variants={itemRevealVariants}
-                className="border-l-4 border-black/20 pl-4 py-1 my-3 text-black/70 italic text-sm"
+                className="border-l-4 border-indigo-200 pl-4 py-1 my-3 text-black/70 italic text-sm"
               >
                 {children}
               </motion.blockquote>
             ),
             strong: ({ children }) => (
-              <strong className="font-semibold text-black bg-[#ec4899]/15 px-1.5 py-0.5 rounded text-xs">
+              <strong className="font-semibold text-black bg-amber-100/70 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-xs">
                 {children}
               </strong>
             ),
@@ -1921,10 +1991,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
         {isStreaming && (
           <div className="flex items-center gap-2 mt-4 pt-3 border-t border-dashed border-black/10 text-xs text-black/60">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ec4899] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ec4899]" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600" />
             </span>
-            <span className="font-mono font-medium text-[#ec4899]">Untangling and streaming response...</span>
+            <span className="font-mono font-medium text-indigo-600">Untangling and streaming response...</span>
           </div>
         )}
       </motion.div>
@@ -1974,9 +2044,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
       <div className="mt-8 pt-4 border-t border-black/10 flex justify-end">
         <button
           onClick={onNewUntangle}
-          className="bg-black text-white hover:bg-[#ec4899] px-5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+          className="bg-black text-white hover:bg-indigo-600 px-5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
         >
-          <RotateCcw className="w-3.5 h-3.5" /> untangle something else
+          <RotateCcw className="w-3.5 h-3.5 text-amber-400" /> untangle something else
         </button>
       </div>
 

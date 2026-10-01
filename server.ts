@@ -519,9 +519,21 @@ app.post("/api/share-note", async (req, res) => {
 app.get("/api/share-note/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const adminClient = getSupabaseAdmin();
 
-    // 1. Attempt to fetch from Supabase backend
+    // 1. Instant check in memory and disk cache store
+    const localNote = sharedNotesMap.get(id);
+    if (localNote) {
+      localNote.views = (localNote.views || 0) + 1;
+      saveSharedNotesToDisk();
+      return res.json({
+        success: true,
+        provider: "local",
+        note: localNote,
+      });
+    }
+
+    // 2. If not found locally, attempt to fetch from Supabase backend
+    const adminClient = getSupabaseAdmin();
     if (adminClient) {
       try {
         const { data: sbNote, error } = await adminClient
@@ -538,18 +550,22 @@ app.get("/api/share-note/:id", async (req, res) => {
             .eq("id", id)
             .then();
 
+          const loadedNote: SharedNote = {
+            id: sbNote.id,
+            title: sbNote.title,
+            content: sbNote.content,
+            routeDetected: sbNote.route_detected || sbNote.routeDetected || "notes",
+            budget: sbNote.budget || "",
+            createdAt: sbNote.created_at || sbNote.createdAt,
+            views: updatedViews,
+          };
+          sharedNotesMap.set(id, loadedNote);
+          saveSharedNotesToDisk();
+
           return res.json({
             success: true,
             provider: "supabase",
-            note: {
-              id: sbNote.id,
-              title: sbNote.title,
-              content: sbNote.content,
-              routeDetected: sbNote.route_detected || sbNote.routeDetected || "notes",
-              budget: sbNote.budget || "",
-              createdAt: sbNote.created_at || sbNote.createdAt,
-              views: updatedViews,
-            },
+            note: loadedNote,
           });
         }
       } catch (sbErr) {
@@ -557,22 +573,7 @@ app.get("/api/share-note/:id", async (req, res) => {
       }
     }
 
-    // 2. Fallback to resilient local cache store
-    const note = sharedNotesMap.get(id);
-
-    if (!note) {
-      return res.status(404).json({ error: "Shared note not found or link has expired." });
-    }
-
-    // Increment view counter and save
-    note.views = (note.views || 0) + 1;
-    saveSharedNotesToDisk();
-
-    return res.json({
-      success: true,
-      provider: "local",
-      note,
-    });
+    return res.status(404).json({ error: "Shared note not found or link has expired." });
   } catch (err: any) {
     console.error("Error retrieving shared note:", err);
     return res.status(500).json({ error: err.message || "Failed to retrieve shared note." });

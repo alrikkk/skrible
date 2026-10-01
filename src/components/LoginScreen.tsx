@@ -395,13 +395,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       >
                         <div className="p-2.5 font-mono text-[10px] text-black/60 uppercase font-bold sticky top-0 bg-white z-10 border-b border-stone-100 flex justify-between items-center shadow-2xs">
                           <span className="flex items-center gap-1.5 text-black">
-                            <Search className="w-3.5 h-3.5 text-[#ec4899]" />
+                            <Search className="w-3.5 h-3.5 text-indigo-600" />
                             Type or Select Code
                           </span>
                           <button
                             type="button"
                             onClick={() => setIsCountryDropdownOpen(false)}
-                            className="px-2 py-0.5 bg-pink-50 hover:bg-pink-100 text-[#ec4899] font-bold rounded-md transition-colors cursor-pointer text-[11px]"
+                            className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-md transition-colors cursor-pointer text-[11px]"
                           >
                             Done ✕
                           </button>
@@ -559,7 +559,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <div className="mt-6 pt-4 border-t border-black/10 text-center">
             <button
               onClick={handleGuestLoginClick}
-              className="text-xs font-semibold text-black/60 hover:text-[#ec4899] transition-colors cursor-pointer"
+              className="text-xs font-semibold text-black/60 hover:text-indigo-600 transition-colors cursor-pointer"
             >
               Skip for now → Continue as Guest
             </button>
@@ -568,7 +568,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         {/* Security badge footer */}
         <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-black/40 mt-4">
-          <Shield className="w-3.5 h-3.5 text-[#ec4899]" />
+          <Shield className="w-3.5 h-3.5 text-emerald-600" />
           <span>Supabase Auth Protected • SSL Encrypted</span>
         </div>
       </div>

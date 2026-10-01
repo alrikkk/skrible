@@ -102,14 +102,40 @@ export default function App() {
     createdAt?: string;
   } | null>(null);
 
-  // Auto-detect and fetch shared note from URL (?share=id or ?note=id or /share/id)
+  // Auto-detect and fetch shared note from URL (?share=id or ?note=id or ?note_data=base64 or /share/id)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const urlParams = new URLSearchParams(window.location.search);
     const queryShareId = urlParams.get("share") || urlParams.get("note");
+    const rawNoteData = urlParams.get("note_data");
     const pathMatch = window.location.pathname.match(/^\/share\/([a-zA-Z0-9_-]+)/);
     const shareId = queryShareId || (pathMatch ? pathMatch[1] : null);
+
+    // Fast-path client encoded payload
+    if (rawNoteData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(rawNoteData))));
+        if (decoded && decoded.content) {
+          setOutputMarkdown(decoded.content);
+          setRouteDetected(decoded.routeDetected || "notes");
+          setPromptText(decoded.title || "Shared Note");
+          if (decoded.budget) {
+            setBudget(decoded.budget);
+          }
+          setCurrentPage("workspace");
+          setIsSaved(false);
+          setSharedNoteMeta({
+            id: shareId || "shared_peer_note",
+            title: decoded.title || "Peer Shared Untangled Note",
+            createdAt: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not decode note_data parameter:", err);
+      }
+    }
 
     if (!shareId) return;
 
@@ -608,7 +634,7 @@ export default function App() {
                 ) : toastMessage.type === "success" ? (
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
                 ) : (
-                  <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                 )}
                 <span>{toastMessage.text}</span>
               </div>
@@ -678,7 +704,7 @@ export default function App() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleBackToHomeClick}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white hover:text-[#ec4899] bg-white dark:bg-[#2a2a2a] border border-black/20 dark:border-white/20 rounded-lg shadow-2xs hover:border-[#ec4899] transition-all cursor-pointer active:scale-95"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white hover:text-indigo-600 bg-white dark:bg-[#2a2a2a] border border-black/20 dark:border-white/20 rounded-lg shadow-2xs hover:border-indigo-400 transition-all cursor-pointer active:scale-95"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Back to Home</span>
@@ -688,9 +714,9 @@ export default function App() {
 
                   <button
                     onClick={handleBackToHomeClick}
-                    className="flex items-center gap-2 text-xl font-extrabold text-black dark:text-white font-sans lowercase hover:text-[#ec4899] transition-colors cursor-pointer group"
+                    className="flex items-center gap-2 text-xl font-extrabold text-black dark:text-white font-sans lowercase hover:text-indigo-600 transition-colors cursor-pointer group"
                   >
-                    <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-[#ec4899] transition-colors" />
+                    <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-indigo-600 transition-colors" />
                     <span>skrible</span>
                   </button>
                   <span className="text-xs font-mono text-black/50 dark:text-white/50 hidden md:inline">
@@ -712,13 +738,13 @@ export default function App() {
                       {currentUser.avatar ? (
                         <img src={currentUser.avatar} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
                       ) : (
-                        <div className="w-5 h-5 rounded-full bg-[#ec4899] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                        <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                           {currentUser.name.charAt(0).toUpperCase()}
                         </div>
                       )}
                       <span className="hidden sm:inline font-mono font-semibold max-w-[110px] truncate">{currentUser.name}</span>
                       <LogOut
-                        className="w-3.5 h-3.5 text-black/50 dark:text-white/50 hover:text-[#ec4899] transition-colors ml-0.5"
+                        className="w-3.5 h-3.5 text-black/50 dark:text-white/50 hover:text-rose-600 transition-colors ml-0.5"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleSignOut();
@@ -747,9 +773,9 @@ export default function App() {
 
                   <button
                     onClick={() => setIsHistoryOpen(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black dark:bg-[#333333] hover:bg-[#ec4899] dark:hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer active:scale-95"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black dark:bg-[#333333] hover:bg-indigo-600 dark:hover:bg-indigo-600 rounded-lg transition-all shadow-sm cursor-pointer active:scale-95"
                   >
-                    <History className="w-3.5 h-3.5" />
+                    <History className="w-3.5 h-3.5 text-amber-400" />
                     <span>saved vault ({history.length})</span>
                   </button>
                 </div>
@@ -760,7 +786,7 @@ export default function App() {
               {/* Peer Shared Note Loading State */}
               {isLoadingSharedNote && (
                 <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-5 mb-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3">
-                  <div className="w-5 h-5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent animate-spin rounded-full" />
                   <span className="text-xs font-bold text-black dark:text-white uppercase tracking-wider font-mono">
                     Loading peer shared untangled note...
                   </span>
@@ -786,13 +812,13 @@ export default function App() {
               {sharedNoteMeta && outputMarkdown && (
                 <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#ec4899]/15 border border-[#ec4899]/30 text-[#ec4899] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                       <Share2 className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#ec4899] text-white">
-                          Peer Shared Note
+                        <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                          Peer Shared Note • View-Only
                         </span>
                         {sharedNoteMeta.views ? (
                           <span className="text-[11px] text-black/50 dark:text-white/50 font-medium">
@@ -804,7 +830,7 @@ export default function App() {
                         Viewing: {sharedNoteMeta.title}
                       </h3>
                       <p className="text-xs text-black/60 dark:text-white/60">
-                        Shared via unique public URL • Ready to study, practice flashcards, or save
+                        Public view-only link (no editing permission) • Ready to read, study flashcards, export to PDF, or save a personal copy to your vault
                       </p>
                     </div>
                   </div>
@@ -864,6 +890,7 @@ export default function App() {
                   onSaveToHistory={handleSaveToHistory}
                   isSaved={isSaved}
                   onNewUntangle={handleReset}
+                  isReadOnly={Boolean(sharedNoteMeta)}
                   onUpdateMarkdown={(updated) => {
                     setOutputMarkdown(updated);
                     setIsSaved(false);
@@ -959,7 +986,7 @@ export default function App() {
                   }
                   setCurrentPage("home");
                 }}
-                className="px-4 py-2 text-xs font-semibold text-white bg-[#ec4899] hover:bg-[#db2777] border border-black rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer active:scale-95"
+                className="px-4 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 border border-black rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer active:scale-95"
               >
                 Log Out & Go Home
               </button>

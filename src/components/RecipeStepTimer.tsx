@@ -264,10 +264,10 @@ export const RecipeStepTimer: React.FC<RecipeStepTimerProps> = ({
       <button
         type="button"
         onClick={handleStartTimer}
-        className="inline-flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/20 hover:border-[#ec4899] px-2.5 py-1 rounded-lg text-xs font-semibold shadow-2xs transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none shrink-0"
+        className="inline-flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/20 hover:border-amber-400 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-2xs transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none shrink-0"
         title={`Start ${defaultLabel} countdown timer for this step`}
       >
-        <Timer className="w-3.5 h-3.5 text-[#ec4899]" />
+        <Timer className="w-3.5 h-3.5 text-amber-600" />
         <span>{detected ? `${detected.label} timer` : "Start timer"}</span>
       </button>
     );
@@ -289,7 +289,7 @@ export const RecipeStepTimer: React.FC<RecipeStepTimerProps> = ({
                 : "bg-[#FAF8F5] text-black border-black/20"
             }`}
           >
-            <Timer className={`w-4 h-4 ${isRunning ? "text-[#ec4899] animate-spin" : ""}`} />
+            <Timer className={`w-4 h-4 ${isRunning ? "text-amber-400 animate-spin" : ""}`} />
             <span>{formatTimeDisplay(secondsLeft)}</span>
           </div>
 
@@ -299,8 +299,8 @@ export const RecipeStepTimer: React.FC<RecipeStepTimerProps> = ({
               <Check className="w-3 h-3" /> Ding! Done
             </span>
           ) : isRunning ? (
-            <span className="text-[11px] font-bold text-[#ec4899] bg-[#ec4899]/10 border border-[#ec4899]/30 px-2 py-0.5 rounded-md flex items-center gap-1">
-              <Flame className="w-3 h-3 text-[#ec4899]" /> Cooking...
+            <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1">
+              <Flame className="w-3 h-3 text-orange-500" /> Cooking...
             </span>
           ) : (
             <span className="text-[11px] font-semibold text-black/60 bg-black/5 border border-black/10 px-2 py-0.5 rounded-md">
@@ -353,12 +353,12 @@ export const RecipeStepTimer: React.FC<RecipeStepTimerProps> = ({
             onClick={() => setSoundEnabled((prev) => !prev)}
             className={`p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
               soundEnabled
-                ? "bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/30"
+                ? "bg-amber-50 text-amber-800 border-amber-300"
                 : "bg-black/5 text-black/40 border-black/10"
             }`}
             title={soundEnabled ? "Sound alert enabled" : "Sound alert muted"}
           >
-            {soundEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+            {soundEnabled ? <Bell className="w-3.5 h-3.5 text-amber-600" /> : <BellOff className="w-3.5 h-3.5" />}
           </button>
 
           {/* Test Chime button if finished */}
@@ -470,7 +470,7 @@ export const ActiveTimerDock: React.FC<ActiveTimerDockProps> = ({
             activeTimer.isFinished
               ? "bg-emerald-500 text-white animate-bounce"
               : activeTimer.isRunning
-              ? "bg-[#ec4899] text-white"
+              ? "bg-amber-500 text-white"
               : "bg-white/20 text-white"
           }`}
         >
@@ -484,7 +484,7 @@ export const ActiveTimerDock: React.FC<ActiveTimerDockProps> = ({
             </span>
             <span
               className={`text-xs font-mono font-black ${
-                activeTimer.isFinished ? "text-emerald-400" : "text-[#ec4899]"
+                activeTimer.isFinished ? "text-emerald-400" : "text-amber-400"
               }`}
             >
               {formatTimeDisplay(activeTimer.secondsLeft)}

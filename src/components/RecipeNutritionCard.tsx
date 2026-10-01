@@ -248,7 +248,7 @@ export const RecipeNutritionCard: React.FC<RecipeNutritionCardProps> = ({
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5">
             <HeartPulse className="w-5 h-5" />
           </div>
           <div>
@@ -257,12 +257,12 @@ export const RecipeNutritionCard: React.FC<RecipeNutritionCardProps> = ({
                 Nutritional Value Breakdown & Macros
               </h4>
               {activeNutrition.isAiGenerated ? (
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#ec4899]/15 text-[#ec4899] border border-[#ec4899]/30 flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5" /> Gemini AI Refined
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-indigo-600" /> Gemini AI Refined
                 </span>
               ) : (
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                  <ShieldCheck className="w-2.5 h-2.5" /> Ingredients Calculated
+                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-700" /> Ingredients Calculated
                 </span>
               )}
             </div>
@@ -421,7 +421,7 @@ export const RecipeNutritionCard: React.FC<RecipeNutritionCardProps> = ({
       <div className="bg-white border border-black/10 rounded-xl p-3.5 mb-4 shadow-2xs">
         <div className="flex items-center justify-between text-xs font-bold text-black/75 mb-2">
           <span className="flex items-center gap-1.5">
-            <Scale className="w-3.5 h-3.5 text-[#ec4899]" />
+            <Scale className="w-3.5 h-3.5 text-emerald-600" />
             <span>Energy Macro Calorie Split</span>
           </span>
           <span className="text-[11px] font-mono text-black/60 font-semibold">
@@ -495,7 +495,7 @@ export const RecipeNutritionCard: React.FC<RecipeNutritionCardProps> = ({
           {activeNutrition.dietaryTags?.map((tag) => (
             <span
               key={tag}
-              className="bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 px-2.5 py-1 rounded-xl text-xs font-bold"
+              className="bg-emerald-50 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-xl text-xs font-bold"
             >
               {tag}
             </span>
@@ -505,7 +505,7 @@ export const RecipeNutritionCard: React.FC<RecipeNutritionCardProps> = ({
         {/* Student Health & Study Energy Insight */}
         {activeNutrition.healthNote && (
           <div className="bg-white border border-black/10 rounded-xl p-3 flex items-start gap-2.5 shadow-2xs text-xs text-black/80 font-medium">
-            <Zap className="w-4 h-4 text-[#ec4899] shrink-0 mt-0.5" />
+            <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
             <div className="leading-relaxed">
               <span className="font-bold text-black mr-1">Dorm Fuel Insight:</span>
               <span>{activeNutrition.healthNote}</span>
@@ -522,7 +522,7 @@ export const RecipeNutritionCard: React.FC<RecipeNutritionCardProps> = ({
               onClick={() => setShowIngredientDetails(!showIngredientDetails)}
               className="flex items-center gap-2 text-xs font-bold text-black cursor-pointer select-none"
             >
-              <Layers className="w-3.5 h-3.5 text-[#ec4899]" />
+              <Layers className="w-3.5 h-3.5 text-indigo-600" />
               <span>
                 Itemized Ingredient Breakdown ({activeNutrition.ingredientBreakdown.length} items)
               </span>

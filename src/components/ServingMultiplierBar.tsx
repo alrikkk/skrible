@@ -65,7 +65,7 @@ export const ServingMultiplierBar: React.FC<ServingMultiplierBarProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Left: Title & Base Serving Indicator */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/30 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center shrink-0">
             <Users className="w-4 h-4" />
           </div>
           <div>
@@ -77,8 +77,8 @@ export const ServingMultiplierBar: React.FC<ServingMultiplierBarProps> = ({
                 Original: {baseServings} {baseServings === 1 ? "serving" : "servings"}
               </span>
               {isModified && (
-                <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[#ec4899]/15 text-[#ec4899] border border-[#ec4899]/30 flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5" />
+                <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-300 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-500" />
                   {multiplier}x Recalculated
                 </span>
               )}

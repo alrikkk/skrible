@@ -153,13 +153,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b-2 border-black bg-[#FAF8F5]">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#ec4899]/15 border border-[#ec4899]/30 text-[#ec4899] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center">
                 <Share2 className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="font-bold text-base text-black tracking-tight flex items-center gap-1.5">
                   <span>Send to Other Apps</span>
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#ec4899]/10 text-[#ec4899] font-bold">
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold border border-indigo-200">
                     Web Share API
                   </span>
                 </h3>
@@ -183,22 +183,22 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
             <div className="bg-white border-2 border-black rounded-xl p-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
-                  <Globe className="w-4 h-4 text-[#ec4899]" />
-                  <span>Unique Public Link for Study Peers</span>
+                  <Globe className="w-4 h-4 text-blue-600" />
+                  <span>Public View-Only Link for Students</span>
                 </span>
                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1">
                   <Check className="w-3 h-3 text-emerald-700 stroke-[3]" />
-                  <span>Supabase Synced</span>
+                  <span>View-Only (No Edit Access)</span>
                 </span>
               </div>
 
               <p className="text-xs text-black/75 mb-3 leading-relaxed">
-                Study peers can open this unique URL directly to read your untangled note, study takeaways, cram flashcards, or save a copy to their own vault.
+                Other students can open this unique public URL to read and study your untangled note without editing access. They can also practice cram flashcards or save a personal copy to their own vault.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center gap-2">
                 <div className="flex-1 w-full flex items-center bg-[#FAF8F5] border-2 border-black rounded-xl px-3 py-2 text-xs font-mono text-black overflow-hidden shadow-2xs">
-                  <Link2 className="w-3.5 h-3.5 text-black/40 shrink-0 mr-2" />
+                  <Link2 className="w-3.5 h-3.5 text-blue-600 shrink-0 mr-2" />
                   <span className="truncate select-all font-semibold" title={shareUrl}>
                     {shareUrl}
                   </span>
@@ -210,8 +210,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                     onClick={handleCopyLink}
                     className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5 active:scale-95 ${
                       copiedLink
-                        ? "bg-emerald-500 text-white border-black"
-                        : "bg-[#ec4899] hover:bg-[#db2777] text-white"
+                        ? "bg-emerald-600 text-white border-black"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
                     }`}
                   >
                     {copiedLink ? (
@@ -231,7 +231,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                     href={shareUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-white hover:bg-black/5 text-black border-2 border-black rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center cursor-pointer active:scale-95"
+                    className="p-2 bg-white hover:bg-blue-50 text-blue-600 border-2 border-black rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center cursor-pointer active:scale-95"
                     title="Open public link in new tab to test peer experience"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -244,7 +244,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
             <div className="bg-[#FAF8F5] border border-black/15 rounded-xl p-4 shadow-2xs">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-[#ec4899]" />
+                  <Smartphone className="w-4 h-4 text-purple-600" />
                   <span>Native Device Share Sheet</span>
                 </span>
                 {hasNativeShare ? (
@@ -268,7 +268,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                   type="button"
                   onClick={() => handleNativeShare(false)}
                   disabled={isSharingNative}
-                  className="flex-1 bg-[#ec4899] hover:bg-[#db2777] active:scale-[0.98] text-white py-2.5 px-4 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2.5 px-4 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
                 >
                   <Share2 className="w-4 h-4" />
                   <span>
@@ -285,7 +285,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                   className="bg-white hover:bg-black/5 text-black border border-black/15 py-2.5 px-3.5 rounded-xl text-xs font-semibold shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   title="Share as attached .md markdown file"
                 >
-                  <FileText className="w-3.5 h-3.5 text-[#ec4899]" />
+                  <FileText className="w-3.5 h-3.5 text-slate-700" />
                   <span>Attach .md File</span>
                 </button>
               </div>
@@ -425,14 +425,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                   className={`flex items-center justify-center gap-1.5 p-2 border rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
                     pdfDownloaded
                       ? "bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-400 font-bold"
-                      : "bg-white hover:bg-black/5 border-black/15 text-black hover:border-[#ec4899]"
+                      : "bg-white hover:bg-black/5 border-black/15 text-black hover:border-rose-400"
                   }`}
                   title="Export formatted note or recipe to a downloadable PDF file"
                 >
                   {isDownloadingPdf ? (
                     <>
-                      <div className="w-3.5 h-3.5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-                      <span className="text-[#ec4899]">Exporting...</span>
+                      <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent animate-spin rounded-full" />
+                      <span className="text-rose-600">Exporting...</span>
                     </>
                   ) : pdfDownloaded ? (
                     <>
@@ -441,7 +441,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
                     </>
                   ) : (
                     <>
-                      <FileDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                      <FileDown className="w-3.5 h-3.5 text-rose-600" />
                       <span>Export PDF</span>
                     </>
                   )}
@@ -453,7 +453,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, options
             <div className="border border-black/10 rounded-xl overflow-hidden bg-[#FAF8F5]">
               <div className="flex items-center justify-between p-2.5 border-b border-black/10 bg-white">
                 <span className="text-[11px] font-bold text-black flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-[#ec4899]" />
+                  <FileText className="w-3.5 h-3.5 text-amber-600" />
                   <span>Share Preview</span>
                 </span>
                 <div className="flex items-center gap-1">
