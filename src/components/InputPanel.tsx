@@ -32,7 +32,7 @@ interface InputPanelProps {
   setFiles: React.Dispatch<React.SetStateAction<FileAttachment[]>>;
   audioAttachment: FileAttachment | null;
   setAudioAttachment: (audio: FileAttachment | null) => void;
-  onSubmit: () => void;
+  onSubmit: (overrideRoute?: "notes" | "chef") => void;
   isLoading: boolean;
 }
 
@@ -57,6 +57,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [micError, setMicError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -113,6 +114,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
 
   // Live Microphone Recording with Real-time Speech-to-Text
   const startRecording = async () => {
+    setMicError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -211,7 +213,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err) {
-      alert("Microphone access is required for voice memo recording and dictation.");
+      setMicError("Microphone access is required for voice recording and dictation. Please allow microphone access in your browser.");
     }
   };
 
@@ -242,12 +244,12 @@ export const InputPanel: React.FC<InputPanelProps> = ({
 
   const handleNoteSubmit = () => {
     setRoute("notes");
-    setTimeout(() => onSubmit(), 50);
+    onSubmit("notes");
   };
 
   const handleChefSubmit = () => {
     setRoute("chef");
-    setTimeout(() => onSubmit(), 50);
+    onSubmit("chef");
   };
 
   return (
@@ -434,6 +436,20 @@ export const InputPanel: React.FC<InputPanelProps> = ({
               </div>
             </div>
 
+            {/* Mic Error Banner if any */}
+            {micError && (
+              <div className="mb-3 p-2.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs flex items-center justify-between gap-2 shadow-2xs">
+                <span>{micError}</span>
+                <button
+                  type="button"
+                  onClick={() => setMicError(null)}
+                  className="text-amber-800 hover:text-black font-bold p-0.5 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Note Input Field */}
             {noteTab === "text" && (
               <div>
@@ -593,14 +609,23 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             type="button"
             onClick={handleNoteSubmit}
             disabled={isLoading || (!promptText && files.length === 0 && !audioAttachment)}
-            className={`w-full py-3.5 px-4 rounded-xl font-semibold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${
+            className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-[0.98] ${
               isLoading || (!promptText && files.length === 0 && !audioAttachment)
                 ? "bg-black/10 text-black/40 cursor-not-allowed"
-                : "bg-black hover:bg-[#ec4899] text-white"
+                : "bg-black hover:bg-[#ec4899] text-white hover:shadow-md"
             }`}
           >
-            <Sparkles className="w-4 h-4 text-[#ec4899]" />
-            <span>untangle notes now</span>
+            {isLoading && route === "notes" ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full" />
+                <span>untangling notes...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-[#ec4899]" />
+                <span>untangle notes now</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -834,14 +859,23 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             type="button"
             onClick={handleChefSubmit}
             disabled={isLoading || (!promptText && files.length === 0 && !audioAttachment)}
-            className={`w-full py-3.5 px-4 rounded-xl font-semibold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${
+            className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-[0.98] ${
               isLoading || (!promptText && files.length === 0 && !audioAttachment)
                 ? "bg-black/10 text-black/40 cursor-not-allowed"
-                : "bg-black hover:bg-[#ec4899] text-white"
+                : "bg-black hover:bg-[#ec4899] text-white hover:shadow-md"
             }`}
           >
-            <Utensils className="w-4 h-4 text-[#ec4899]" />
-            <span>untangle recipes now</span>
+            {isLoading && route === "chef" ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full" />
+                <span>cooking recipes...</span>
+              </>
+            ) : (
+              <>
+                <Utensils className="w-4 h-4 text-[#ec4899]" />
+                <span>untangle recipes now</span>
+              </>
+            )}
           </button>
         </div>
 

@@ -453,7 +453,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <button
                   type="submit"
                   disabled={isLoading || cooldown > 0}
-                  className="w-full py-3 bg-black hover:bg-[#ec4899] text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                  className="w-full py-3 bg-black hover:bg-[#ec4899] text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50 active:scale-95"
                 >
                   Continue with Phone
                 </button>

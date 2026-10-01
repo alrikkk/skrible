@@ -44,6 +44,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [viewMode, setViewMode] = useState<"edit" | "split" | "preview">("split");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [justCopied, setJustCopied] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
 
   const isModified = value !== originalValue;
 
@@ -104,9 +105,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   };
 
   const handleResetToOriginal = () => {
-    if (window.confirm("Revert your manual changes back to the original AI-generated output?")) {
-      onChange(originalValue);
-    }
+    onChange(originalValue);
+    setShowRevertConfirm(false);
   };
 
   return (
@@ -189,15 +189,35 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5">
           {isModified && (
-            <button
-              type="button"
-              onClick={handleResetToOriginal}
-              className="flex items-center gap-1 bg-white dark:bg-[#2C2C32] hover:bg-red-50 dark:hover:bg-red-950/40 text-black/70 dark:text-white/70 hover:text-red-700 border border-black/10 dark:border-white/10 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-2xs"
-              title="Discard edits and revert to AI generated output"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span className="hidden md:inline">Revert</span>
-            </button>
+            showRevertConfirm ? (
+              <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-lg text-xs font-semibold">
+                <span className="text-amber-900 dark:text-amber-200">Revert changes?</span>
+                <button
+                  type="button"
+                  onClick={handleResetToOriginal}
+                  className="px-2 py-0.5 bg-rose-600 text-white rounded text-[11px] font-bold hover:bg-rose-700 cursor-pointer transition-colors active:scale-95"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRevertConfirm(false)}
+                  className="px-2 py-0.5 bg-stone-200 dark:bg-stone-700 text-black dark:text-white rounded text-[11px] hover:bg-stone-300 cursor-pointer transition-colors active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowRevertConfirm(true)}
+                className="flex items-center gap-1 bg-white dark:bg-[#2C2C32] hover:bg-red-50 dark:hover:bg-red-950/40 text-black/70 dark:text-white/70 hover:text-red-700 border border-black/10 dark:border-white/10 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
+                title="Discard edits and revert to AI generated output"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span className="hidden md:inline">Revert</span>
+              </button>
+            )
           )}
 
           <button

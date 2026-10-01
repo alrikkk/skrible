@@ -376,7 +376,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
   // Web Speech API Read Aloud
   const handleReadAloud = () => {
     if (!('speechSynthesis' in window)) {
-      alert("Web Speech API is not supported in this browser.");
+      setShareToast("Web Speech API is not supported in this browser.");
+      setTimeout(() => setShareToast(null), 3000);
       return;
     }
 
@@ -493,7 +494,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
         setIsPlayingAudio(true);
       }
     } catch (err: any) {
-      alert(err.message || "Failed to generate audio readout.");
+      setShareToast(err.message || "Failed to generate audio readout.");
+      setTimeout(() => setShareToast(null), 4000);
     } finally {
       setIsLoadingAudio(false);
     }
@@ -1291,9 +1293,18 @@ export const OutputView: React.FC<OutputViewProps> = ({
           {routeDetected === "chef" && (
             <button
               onClick={() => {
-                const firstStep = document.querySelector("[id^='recipe-step-']");
+                const firstStep =
+                  document.querySelector("[id^='recipe-step-']") ||
+                  document.querySelector("ol") ||
+                  Array.from(document.querySelectorAll("h2, h3")).find((h) =>
+                    /instruction|step|direction|method|cook/i.test(h.textContent || "")
+                  );
                 if (firstStep) {
                   firstStep.scrollIntoView({ behavior: "smooth", block: "center" });
+                } else {
+                  document
+                    .getElementById("recipe-servings-bar")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
               }}
               className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"

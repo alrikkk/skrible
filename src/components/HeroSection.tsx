@@ -1,14 +1,20 @@
 import React, { useRef } from "react";
-import { History, RefreshCw, Sparkles, Mic, FileText, Utensils, ArrowRight, User } from "lucide-react";
+import { History, RefreshCw, Sparkles, Mic, FileText, Utensils, ArrowRight, User, LogOut } from "lucide-react";
 import { motion } from "motion/react";
 import { ScribbleLogo } from "./ScribbleLogo";
 import { ThemeToggle } from "./ThemeToggle";
+import { PRESET_SAMPLES } from "../data/presets";
+import { PresetSample } from "../types";
 
 interface HeroSectionProps {
   historyCount: number;
   onOpenHistory: () => void;
   onReset: () => void;
   onStart: () => void;
+  onLogin?: () => void;
+  currentUser?: { name: string; email?: string; avatar?: string; provider?: string } | null;
+  onSignOut?: () => void;
+  onSelectPreset?: (preset: PresetSample) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
 }
@@ -18,6 +24,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onOpenHistory,
   onReset,
   onStart,
+  onLogin,
+  currentUser,
+  onSignOut,
+  onSelectPreset,
   isDark = false,
   onToggleTheme,
 }) => {
@@ -63,20 +73,60 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
             <button
               onClick={onReset}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 hover:text-black bg-white hover:bg-black/5 border border-black/20 rounded-lg transition-all cursor-pointer"
-              title="Clear all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 hover:text-black bg-white hover:bg-black/5 border border-black/20 rounded-lg transition-all cursor-pointer active:scale-95"
+              title="Clear all inputs"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">reset</span>
             </button>
 
+            {/* Saved Vault Button with count */}
             <button
-              onClick={onStart}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer"
+              onClick={onOpenHistory}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white bg-white dark:bg-[#2a2a2a] hover:bg-black/5 dark:hover:bg-white/10 border border-black/20 dark:border-white/20 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95 hover:border-[#ec4899]"
+              title="Open saved vault items"
             >
-              <User className="w-3.5 h-3.5" />
-              <span>Log In</span>
+              <History className="w-3.5 h-3.5 text-[#ec4899]" />
+              <span>vault ({historyCount})</span>
             </button>
+
+            {/* User Profile or Sign In Button */}
+            {currentUser ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={onLogin}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/15 dark:border-white/20 rounded-lg text-xs font-medium shadow-2xs cursor-pointer transition-all active:scale-95 text-black dark:text-white"
+                  title="User Account Options"
+                >
+                  {currentUser.avatar ? (
+                    <img src={currentUser.avatar} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-[#ec4899] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="hidden sm:inline font-mono font-semibold max-w-[100px] truncate">{currentUser.name}</span>
+                </button>
+                {onSignOut && (
+                  <button
+                    onClick={onSignOut}
+                    className="p-1.5 bg-white dark:bg-[#2a2a2a] hover:bg-red-50 text-black/50 hover:text-red-600 border border-black/15 dark:border-white/20 rounded-lg transition-all cursor-pointer"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onLogin || onStart}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer active:scale-95"
+                title="Sign In to account"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -100,7 +150,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 bg-black hover:bg-[#ec4899] text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer group"
           >
             <span>Lets Start</span>
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
           </button>
         </div>
 
@@ -115,7 +165,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
           {/* Grid Hint Bar */}
           <div className="flex items-center justify-end text-xs font-mono text-black/40 select-none mb-4 md:mb-0 relative z-20 pointer-events-none">
-            <span className="hidden lg:inline text-black/30">[click & drag cards anywhere inside grid ↘]</span>
+            <span className="hidden lg:inline text-black/30">[click & drag cards or click "try scenario" ↘]</span>
           </div>
 
           {/* CARDS CONTAINER */}
@@ -155,10 +205,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 ))}
               </div>
 
-              <div className="flex items-center justify-between text-[10px] text-white/50">
+              <div className="flex items-center justify-between text-[10px] text-white/50 mb-1">
                 <span>skrible untangling...</span>
                 <span className="text-[#ec4899] font-bold">88%</span>
               </div>
+
+              {onSelectPreset && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const p = PRESET_SAMPLES.find((item) => item.id === "econ-voice-note");
+                    if (p) onSelectPreset(p);
+                  }}
+                  className="mt-2 w-full py-1.5 px-2 bg-white/10 hover:bg-[#ec4899] text-white font-mono font-bold text-[10px] rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 shadow-2xs"
+                >
+                  <span>try voice memo scenario</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </motion.div>
 
             {/* OBJECT 5: Triple T Dorm Mascot Polaroid (Zone 2: Top Center) */}
@@ -232,6 +297,21 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <span>→ Skrible generated 12 cram cards</span>
                 </p>
               </div>
+
+              {onSelectPreset && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const p = PRESET_SAMPLES.find((item) => item.id === "ochem-whiteboard");
+                    if (p) onSelectPreset(p);
+                  }}
+                  className="mt-3 w-full py-1.5 px-2 bg-amber-900/10 hover:bg-[#ec4899] hover:text-white text-amber-950 font-bold text-[10px] rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 shadow-2xs"
+                >
+                  <span>try o-chem scenario</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </motion.div>
 
             {/* OBJECT 3: Crumpled Receipt (Zone 4: Bottom Left) */}
@@ -274,6 +354,21 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   RAMEN CARBONARA
                 </span>
               </div>
+
+              {onSelectPreset && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const p = PRESET_SAMPLES.find((item) => item.id === "target-receipt");
+                    if (p) onSelectPreset(p);
+                  }}
+                  className="mt-2.5 w-full py-1.5 px-2 bg-black/5 hover:bg-[#ec4899] hover:text-white text-black font-mono font-bold text-[10px] rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 shadow-2xs"
+                >
+                  <span>try receipt scenario</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </motion.div>
 
             {/* OBJECT 4: Fridge Sticky Note Polaroid (Zone 5: Bottom Right) */}
@@ -303,6 +398,21 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   cooked in <span className="text-[#ec4899] font-bold">8 mins</span> • 0 waste
                 </p>
               </div>
+
+              {onSelectPreset && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const p = PRESET_SAMPLES.find((item) => item.id === "fridge-dorm-chef");
+                    if (p) onSelectPreset(p);
+                  }}
+                  className="mt-2 w-full py-1.5 px-2 bg-amber-950/10 hover:bg-[#ec4899] hover:text-white text-amber-950 font-bold text-[10px] rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 shadow-2xs"
+                >
+                  <span>try fridge scenario</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </motion.div>
 
           </div>

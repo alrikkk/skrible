@@ -46,7 +46,7 @@ export const PresetBar: React.FC<PresetBarProps> = ({ onSelectPreset }) => {
             <button
               key={preset.id}
               onClick={() => onSelectPreset(preset)}
-              className="group text-left bg-white border border-black/15 hover:border-black/30 rounded-xl p-4 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between"
+              className="group text-left bg-white border border-black/15 hover:border-[#ec4899]/40 rounded-xl p-4 shadow-xs hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer flex flex-col justify-between"
             >
               <div>
                 {/* Single clean tag label without per-category color noise */}

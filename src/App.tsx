@@ -9,7 +9,8 @@ import { LoginScreen, UserProfile } from "./components/LoginScreen";
 import { ScribbleLogo } from "./components/ScribbleLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample } from "./types";
-import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus } from "lucide-react";
+import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus, AlertCircle, Check, X, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "./context/AuthContext";
 import { supabase, getAuthHeaders } from "./lib/supabaseClient";
 
@@ -17,6 +18,13 @@ export default function App() {
   const { currentUser, session, signOut: authSignOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<"home" | "login" | "workspace">("home");
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
+  const [showClearAllModal, setShowClearAllModal] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
+
+  const showToast = (text: string, type: "success" | "error" | "info" = "info", duration = 3500) => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), duration);
+  };
 
   const handleBackToHomeClick = () => {
     if (currentUser) {
@@ -221,10 +229,19 @@ export default function App() {
     setOutputMarkdown("");
     setIsSaved(false);
     setCurrentPage("workspace");
+    showToast(`Loaded "${preset.title}" preset scenario!`, "info");
+
+    setTimeout(() => {
+      document.getElementById("input-panel-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   // Submit Untangle
-  const handleUntangle = async () => {
+  const handleUntangle = async (overrideRoute?: "notes" | "chef") => {
+    const targetRoute = overrideRoute || route;
+    if (overrideRoute) {
+      setRoute(overrideRoute);
+    }
     setIsLoading(true);
     setIsStreaming(true);
     setOutputMarkdown("");
@@ -233,7 +250,7 @@ export default function App() {
     try {
       const payload = {
         prompt: promptText,
-        route,
+        route: targetRoute,
         budget,
         stream: true,
         files: files.map((f) => ({ data: f.data, mimeType: f.mimeType })),
@@ -329,7 +346,7 @@ export default function App() {
         navigator.vibrate([30, 50, 30]);
       }
     } catch (error: any) {
-      alert(error.message || "An error occurred while communicating with Skrible AI.");
+      showToast(error.message || "An error occurred while communicating with Skrible AI.", "error");
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
@@ -502,21 +519,25 @@ export default function App() {
   };
 
   // Clear all history
-  const handleClearAllHistory = async () => {
-    if (confirm("Clear all saved untangled notes and recipes?")) {
-      if (session?.user && currentUser?.provider !== "guest") {
-        try {
-          await supabase.from("notes_history").delete().eq("user_id", session.user.id);
-        } catch (err) {
-          console.error("Failed to clear notes history from Supabase:", err);
-        }
-      } else {
-        try {
-          localStorage.removeItem("skrible_history");
-        } catch {}
+  const handleClearAllHistory = () => {
+    setShowClearAllModal(true);
+  };
+
+  const confirmClearAllHistory = async () => {
+    if (session?.user && currentUser?.provider !== "guest") {
+      try {
+        await supabase.from("notes_history").delete().eq("user_id", session.user.id);
+      } catch (err) {
+        console.error("Failed to clear notes history from Supabase:", err);
       }
-      setHistory([]);
+    } else {
+      try {
+        localStorage.removeItem("skrible_history");
+      } catch {}
     }
+    setHistory([]);
+    setShowClearAllModal(false);
+    showToast("All saved vault items have been cleared", "info");
   };
 
   // Generate Flashcards
@@ -543,7 +564,7 @@ export default function App() {
         setIsFlashcardsOpen(true);
       }
     } catch (e: any) {
-      alert(e.message || "Failed to generate flashcards.");
+      showToast(e.message || "Failed to generate flashcards.", "error");
     } finally {
       setIsLoadingFlashcards(false);
     }
@@ -562,225 +583,297 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-black font-sans selection:bg-[#ec4899] selection:text-white pb-16">
       
-      {currentPage === "home" ? (
-        /* Landing Page View with Hero & Lets Start Button */
-        <div>
-          <HeroSection
-            historyCount={history.length}
-            onOpenHistory={() => setIsHistoryOpen(true)}
-            onReset={handleReset}
-            onStart={() => setCurrentPage("login")}
-            isDark={isDarkMode}
-            onToggleTheme={toggleTheme}
-          />
-        </div>
-      ) : currentPage === "login" ? (
-        /* Login Screen View */
-        <LoginScreen
-          onLoginSuccess={handleLoginSuccess}
-          onBackToHome={() => setCurrentPage("home")}
-          isDark={isDarkMode}
-          onToggleTheme={toggleTheme}
-        />
-      ) : (
-        /* Workspace Webpage View */
-        <div>
-          {/* Header Navigation for Workspace Page */}
-          <header className="sticky top-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-black/10 dark:border-white/10 py-4 px-4 sm:px-8">
-            <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleBackToHomeClick}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white hover:text-[#ec4899] bg-white dark:bg-[#2a2a2a] border border-black/20 dark:border-white/20 rounded-lg shadow-2xs hover:border-[#ec4899] transition-all cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Home</span>
-                </button>
-
-                <div className="h-4 w-px bg-black/15 dark:bg-white/15 hidden sm:block" />
-
-                <button
-                  onClick={handleBackToHomeClick}
-                  className="flex items-center gap-2 text-xl font-extrabold text-black dark:text-white font-sans lowercase hover:text-[#ec4899] transition-colors cursor-pointer group"
-                >
-                  <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-[#ec4899] transition-colors" />
-                  <span>skrible</span>
-                </button>
-                <span className="text-xs font-mono text-black/50 dark:text-white/50 hidden md:inline">
-                  / untangler tool
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-3">
-                {/* Theme Toggle Button */}
-                <ThemeToggle isDark={isDarkMode} onToggle={toggleTheme} />
-
-                {/* User Profile Badge or Sign In Button */}
-                {currentUser ? (
-                  <button
-                    onClick={() => setCurrentPage("login")}
-                    className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/15 dark:border-white/20 rounded-lg text-xs font-medium shadow-2xs cursor-pointer transition-colors text-black dark:text-white"
-                    title="User Account Options"
-                  >
-                    {currentUser.avatar ? (
-                      <img src={currentUser.avatar} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-[#ec4899] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {currentUser.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="hidden sm:inline font-mono font-semibold max-w-[110px] truncate">{currentUser.name}</span>
-                    <LogOut
-                      className="w-3.5 h-3.5 text-black/50 dark:text-white/50 hover:text-[#ec4899] transition-colors ml-0.5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSignOut();
-                      }}
-                    />
-                  </button>
+      {/* App-Wide Floating Notification Toast */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-md w-[90%] pointer-events-none"
+          >
+            <div
+              className={`p-3.5 rounded-xl border-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between gap-3 text-xs font-bold pointer-events-auto ${
+                toastMessage.type === "error"
+                  ? "bg-rose-50 text-rose-900 border-rose-500"
+                  : toastMessage.type === "success"
+                  ? "bg-emerald-50 text-emerald-900 border-emerald-500"
+                  : "bg-white text-black border-black"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {toastMessage.type === "error" ? (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                ) : toastMessage.type === "success" ? (
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
                 ) : (
-                  <button
-                    onClick={() => setCurrentPage("login")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/20 dark:border-white/20 rounded-lg cursor-pointer transition-colors"
-                    title="Sign In to account"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>Sign In</span>
-                  </button>
+                  <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
                 )}
-
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white bg-white dark:bg-[#2a2a2a] hover:bg-black/5 dark:hover:bg-white/10 border border-black/20 dark:border-white/20 rounded-lg transition-all cursor-pointer"
-                  title="Clear all inputs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">reset</span>
-                </button>
-
-                <button
-                  onClick={() => setIsHistoryOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black dark:bg-[#333333] hover:bg-[#ec4899] dark:hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer"
-                >
-                  <History className="w-3.5 h-3.5" />
-                  <span>saved vault ({history.length})</span>
-                </button>
+                <span>{toastMessage.text}</span>
               </div>
+              <button
+                type="button"
+                onClick={() => setToastMessage(null)}
+                className="text-black/50 hover:text-black p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
-          </header>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 transition-all duration-200 ease-out">
-            {/* Peer Shared Note Loading State */}
-            {isLoadingSharedNote && (
-              <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-5 mb-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3">
-                <div className="w-5 h-5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
-                <span className="text-xs font-bold text-black dark:text-white uppercase tracking-wider font-mono">
-                  Loading peer shared untangled note...
-                </span>
-              </div>
-            )}
-
-            {/* Peer Shared Note Error Alert */}
-            {sharedNoteError && (
-              <div className="bg-amber-50 border-2 border-amber-500 rounded-2xl p-4 mb-6 text-amber-950 flex items-center justify-between shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-                <div className="text-xs font-medium">
-                  <strong>Notice:</strong> {sharedNoteError}
-                </div>
-                <button
-                  onClick={() => setSharedNoteError(null)}
-                  className="text-xs font-bold text-amber-800 hover:text-amber-950 underline ml-3 cursor-pointer"
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-
-            {/* Peer Shared Note Active Banner */}
-            {sharedNoteMeta && outputMarkdown && (
-              <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
+      <AnimatePresence mode="wait">
+        {currentPage === "home" ? (
+          /* Landing Page View with Hero & Lets Start Button */
+          <motion.div
+            key="home"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <HeroSection
+              historyCount={history.length}
+              onOpenHistory={() => setIsHistoryOpen(true)}
+              onReset={handleReset}
+              onStart={() => setCurrentPage("workspace")}
+              onLogin={() => setCurrentPage("login")}
+              currentUser={currentUser}
+              onSignOut={handleSignOut}
+              onSelectPreset={handleSelectPreset}
+              isDark={isDarkMode}
+              onToggleTheme={toggleTheme}
+            />
+          </motion.div>
+        ) : currentPage === "login" ? (
+          /* Login Screen View */
+          <motion.div
+            key="login"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <LoginScreen
+              onLoginSuccess={handleLoginSuccess}
+              onBackToHome={() => setCurrentPage("home")}
+              isDark={isDarkMode}
+              onToggleTheme={toggleTheme}
+            />
+          </motion.div>
+        ) : (
+          /* Workspace Webpage View */
+          <motion.div
+            key="workspace"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* Header Navigation for Workspace Page */}
+            <header className="sticky top-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-black/10 dark:border-white/10 py-4 px-4 sm:px-8">
+              <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#ec4899]/15 border border-[#ec4899]/30 text-[#ec4899] flex items-center justify-center shrink-0">
-                    <Share2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#ec4899] text-white">
-                        Peer Shared Note
-                      </span>
-                      {sharedNoteMeta.views ? (
-                        <span className="text-[11px] text-black/50 dark:text-white/50 font-medium">
-                          {sharedNoteMeta.views} {sharedNoteMeta.views === 1 ? "view" : "views"}
-                        </span>
-                      ) : null}
-                    </div>
-                    <h3 className="font-bold text-sm text-black dark:text-white mt-0.5">
-                      Viewing: {sharedNoteMeta.title}
-                    </h3>
-                    <p className="text-xs text-black/60 dark:text-white/60">
-                      Shared via unique public URL • Ready to study, practice flashcards, or save
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                   <button
-                    onClick={() => handleSaveToHistory(outputMarkdown, routeDetected)}
-                    className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    onClick={handleBackToHomeClick}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white hover:text-[#ec4899] bg-white dark:bg-[#2a2a2a] border border-black/20 dark:border-white/20 rounded-lg shadow-2xs hover:border-[#ec4899] transition-all cursor-pointer active:scale-95"
                   >
-                    <Bookmark className="w-3.5 h-3.5" />
-                    <span>Save to My Vault</span>
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Home</span>
                   </button>
+
+                  <div className="h-4 w-px bg-black/15 dark:bg-white/15 hidden sm:block" />
+
                   <button
-                    onClick={() => {
-                      setSharedNoteMeta(null);
-                      handleReset();
-                    }}
-                    className="flex-1 sm:flex-none bg-white hover:bg-black/5 text-black text-xs font-semibold px-3 py-2 rounded-xl border border-black/20 hover:border-black flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    onClick={handleBackToHomeClick}
+                    className="flex items-center gap-2 text-xl font-extrabold text-black dark:text-white font-sans lowercase hover:text-[#ec4899] transition-colors cursor-pointer group"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>New Note</span>
+                    <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-[#ec4899] transition-colors" />
+                    <span>skrible</span>
+                  </button>
+                  <span className="text-xs font-mono text-black/50 dark:text-white/50 hidden md:inline">
+                    / untangler tool
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {/* Theme Toggle Button */}
+                  <ThemeToggle isDark={isDarkMode} onToggle={toggleTheme} />
+
+                  {/* User Profile Badge or Sign In Button */}
+                  {currentUser ? (
+                    <button
+                      onClick={() => setCurrentPage("login")}
+                      className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/15 dark:border-white/20 rounded-lg text-xs font-medium shadow-2xs cursor-pointer transition-all active:scale-95 text-black dark:text-white"
+                      title="User Account Options"
+                    >
+                      {currentUser.avatar ? (
+                        <img src={currentUser.avatar} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-[#ec4899] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {currentUser.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="hidden sm:inline font-mono font-semibold max-w-[110px] truncate">{currentUser.name}</span>
+                      <LogOut
+                        className="w-3.5 h-3.5 text-black/50 dark:text-white/50 hover:text-[#ec4899] transition-colors ml-0.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSignOut();
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setCurrentPage("login")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white bg-white dark:bg-[#2a2a2a] hover:bg-stone-100 dark:hover:bg-[#333333] border border-black/20 dark:border-white/20 rounded-lg cursor-pointer transition-all active:scale-95"
+                      title="Sign In to account"
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>Sign In</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white bg-white dark:bg-[#2a2a2a] hover:bg-black/5 dark:hover:bg-white/10 border border-black/20 dark:border-white/20 rounded-lg transition-all cursor-pointer active:scale-95"
+                    title="Clear all inputs"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">reset</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsHistoryOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-black dark:bg-[#333333] hover:bg-[#ec4899] dark:hover:bg-[#ec4899] rounded-lg transition-all shadow-sm cursor-pointer active:scale-95"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>saved vault ({history.length})</span>
                   </button>
                 </div>
               </div>
-            )}
+            </header>
 
-            {/* Input Panel */}
-            <div id="input-panel-section" className="print:hidden">
-              <InputPanel
-                route={route}
-                setRoute={setRoute}
-                promptText={promptText}
-                setPromptText={setPromptText}
-                budget={budget}
-                setBudget={setBudget}
-                files={files}
-                setFiles={setFiles}
-                audioAttachment={audioAttachment}
-                setAudioAttachment={setAudioAttachment}
-                onSubmit={handleUntangle}
-                isLoading={isLoading}
-              />
-            </div>
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 transition-all duration-200 ease-out">
+              {/* Peer Shared Note Loading State */}
+              {isLoadingSharedNote && (
+                <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-5 mb-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3">
+                  <div className="w-5 h-5 border-2 border-[#ec4899] border-t-transparent animate-spin rounded-full" />
+                  <span className="text-xs font-bold text-black dark:text-white uppercase tracking-wider font-mono">
+                    Loading peer shared untangled note...
+                  </span>
+                </div>
+              )}
 
-            {/* Output Section */}
-            {outputMarkdown && (
-              <OutputView
-                markdown={outputMarkdown}
-                routeDetected={routeDetected}
-                budget={budget}
-                isStreaming={isStreaming}
-                onGenerateFlashcards={handleGenerateFlashcards}
-                onSaveToHistory={handleSaveToHistory}
-                isSaved={isSaved}
-                onNewUntangle={handleReset}
-                onUpdateMarkdown={(updated) => {
-                  setOutputMarkdown(updated);
-                  setIsSaved(false);
-                }}
-              />
-            )}
-          </main>
-        </div>
-      )}
+              {/* Peer Shared Note Error Alert */}
+              {sharedNoteError && (
+                <div className="bg-amber-50 border-2 border-amber-500 rounded-2xl p-4 mb-6 text-amber-950 flex items-center justify-between shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="text-xs font-medium">
+                    <strong>Notice:</strong> {sharedNoteError}
+                  </div>
+                  <button
+                    onClick={() => setSharedNoteError(null)}
+                    className="text-xs font-bold text-amber-800 hover:text-amber-950 underline ml-3 cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* Peer Shared Note Active Banner */}
+              {sharedNoteMeta && outputMarkdown && (
+                <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#ec4899]/15 border border-[#ec4899]/30 text-[#ec4899] flex items-center justify-center shrink-0">
+                      <Share2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#ec4899] text-white">
+                          Peer Shared Note
+                        </span>
+                        {sharedNoteMeta.views ? (
+                          <span className="text-[11px] text-black/50 dark:text-white/50 font-medium">
+                            {sharedNoteMeta.views} {sharedNoteMeta.views === 1 ? "view" : "views"}
+                          </span>
+                        ) : null}
+                      </div>
+                      <h3 className="font-bold text-sm text-black dark:text-white mt-0.5">
+                        Viewing: {sharedNoteMeta.title}
+                      </h3>
+                      <p className="text-xs text-black/60 dark:text-white/60">
+                        Shared via unique public URL • Ready to study, practice flashcards, or save
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button
+                      onClick={() => handleSaveToHistory(outputMarkdown, routeDetected)}
+                      className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>Save to My Vault</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSharedNoteMeta(null);
+                        handleReset();
+                      }}
+                      className="flex-1 sm:flex-none bg-white hover:bg-black/5 text-black text-xs font-semibold px-3 py-2 rounded-xl border border-black/20 hover:border-black flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>New Note</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Preset Test Scenarios Bar */}
+              <div className="print:hidden mb-6">
+                <PresetBar onSelectPreset={handleSelectPreset} />
+              </div>
+
+              {/* Input Panel */}
+              <div id="input-panel-section" className="print:hidden">
+                <InputPanel
+                  route={route}
+                  setRoute={setRoute}
+                  promptText={promptText}
+                  setPromptText={setPromptText}
+                  budget={budget}
+                  setBudget={setBudget}
+                  files={files}
+                  setFiles={setFiles}
+                  audioAttachment={audioAttachment}
+                  setAudioAttachment={setAudioAttachment}
+                  onSubmit={handleUntangle}
+                  isLoading={isLoading}
+                />
+              </div>
+
+              {/* Output Section */}
+              {outputMarkdown && (
+                <OutputView
+                  markdown={outputMarkdown}
+                  routeDetected={routeDetected}
+                  budget={budget}
+                  isStreaming={isStreaming}
+                  onGenerateFlashcards={handleGenerateFlashcards}
+                  onSaveToHistory={handleSaveToHistory}
+                  isSaved={isSaved}
+                  onNewUntangle={handleReset}
+                  onUpdateMarkdown={(updated) => {
+                    setOutputMarkdown(updated);
+                    setIsSaved(false);
+                  }}
+                />
+              )}
+            </main>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer Notice */}
       <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-2">
@@ -854,7 +947,7 @@ export default function App() {
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowLogoutModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-black dark:text-white bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/20 dark:border-white/20 rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-black dark:text-white bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/20 dark:border-white/20 rounded-xl transition-all cursor-pointer active:scale-95"
               >
                 Cancel
               </button>
@@ -866,9 +959,45 @@ export default function App() {
                   }
                   setCurrentPage("home");
                 }}
-                className="px-4 py-2 text-xs font-semibold text-white bg-[#ec4899] hover:bg-[#db2777] border border-black rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#ec4899] hover:bg-[#db2777] border border-black rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer active:scale-95"
               >
                 Log Out & Go Home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All History Confirmation Modal */}
+      {showClearAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#222222] text-black dark:text-white border-2 border-black dark:border-white/30 rounded-2xl p-6 max-w-md w-full shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.2)]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl border border-rose-300 dark:border-rose-700/50 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold">Clear All Saved Notes</h3>
+                <p className="text-xs text-black/60 dark:text-white/60">Permanent Action</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-black/80 dark:text-white/80 mb-6 leading-relaxed">
+              Are you sure you want to clear all {history.length} saved notes and recipes from your vault? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowClearAllModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-black dark:text-white bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/20 dark:border-white/20 rounded-xl transition-all cursor-pointer active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClearAllHistory}
+                className="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 border border-black rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer active:scale-95"
+              >
+                Clear All Notes
               </button>
             </div>
           </div>
