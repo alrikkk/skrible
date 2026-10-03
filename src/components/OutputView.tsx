@@ -37,6 +37,10 @@ import {
   Copy,
   Check,
   FileCode,
+  ArrowUp,
+  X,
+  Minimize2,
+  Type,
   Volume2,
   VolumeX,
   Headphones,
@@ -83,6 +87,8 @@ interface OutputViewProps {
   onNewUntangle: () => void;
   onUpdateMarkdown?: (updatedMarkdown: string) => void;
   isReadOnly?: boolean;
+  isReadabilityMode?: boolean;
+  onToggleReadability?: (active: boolean) => void;
 }
 
 interface ChefStats {
@@ -247,6 +253,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
   onNewUntangle,
   onUpdateMarkdown,
   isReadOnly = false,
+  isReadabilityMode = false,
+  onToggleReadability,
 }) => {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
@@ -262,6 +270,110 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [activeCookingTimer, setActiveCookingTimer] = useState<ActiveTimerInfo | null>(null);
   const [publicShareUrl, setPublicShareUrl] = useState<string | null>(null);
   const [isGeneratingShareUrl, setIsGeneratingShareUrl] = useState<boolean>(false);
+
+  // Readability / Distraction-Free Focus Mode State
+  const [internalReadability, setInternalReadability] = useState<boolean>(isReadabilityMode);
+
+  useEffect(() => {
+    setInternalReadability(isReadabilityMode);
+  }, [isReadabilityMode]);
+
+  const isReadabilityActive = internalReadability;
+
+  const handleToggleReadabilityMode = (active: boolean) => {
+    setInternalReadability(active);
+    onToggleReadability?.(active);
+  };
+
+  // Keyboard shortcut: Esc to exit Readability Mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isReadabilityActive) {
+        handleToggleReadabilityMode(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isReadabilityActive]);
+
+  // Readability custom reader settings
+  const [readerFontSize, setReaderFontSize] = useState<"standard" | "large" | "xl" | "huge">("large");
+  const [readerLineHeight, setReaderLineHeight] = useState<"relaxed" | "loose" | "spacious">("loose");
+  const [readerTheme, setReaderTheme] = useState<"paper" | "clean" | "dark">("paper");
+  const [readerFontFamily, setReaderFontFamily] = useState<"serif" | "sans" | "mono">("serif");
+
+  // Computed dynamic reader typography styles
+  const readerFontFamilyClass = isReadabilityActive
+    ? readerFontFamily === "serif"
+      ? "font-serif"
+      : readerFontFamily === "mono"
+      ? "font-mono"
+      : "font-sans"
+    : "font-sans";
+
+  const readerHeadingSizeClass = isReadabilityActive
+    ? readerFontSize === "standard"
+      ? "text-2xl sm:text-3xl"
+      : readerFontSize === "large"
+      ? "text-3xl sm:text-4xl"
+      : readerFontSize === "xl"
+      ? "text-4xl sm:text-5xl"
+      : "text-4xl sm:text-6xl"
+    : "text-2xl sm:text-3xl";
+
+  const readerSubheadingSizeClass = isReadabilityActive
+    ? readerFontSize === "standard"
+      ? "text-xl sm:text-2xl"
+      : readerFontSize === "large"
+      ? "text-2xl sm:text-3xl"
+      : readerFontSize === "xl"
+      ? "text-3xl sm:text-4xl"
+      : "text-3xl sm:text-5xl"
+    : "text-lg";
+
+  const readerH3SizeClass = isReadabilityActive
+    ? readerFontSize === "standard"
+      ? "text-lg sm:text-xl"
+      : readerFontSize === "large"
+      ? "text-xl sm:text-2xl"
+      : readerFontSize === "xl"
+      ? "text-2xl sm:text-3xl"
+      : "text-2xl sm:text-4xl"
+    : "text-base";
+
+  const readerBodyTextClass = isReadabilityActive
+    ? readerFontSize === "standard"
+      ? "text-base sm:text-lg"
+      : readerFontSize === "large"
+      ? "text-lg sm:text-xl"
+      : readerFontSize === "xl"
+      ? "text-xl sm:text-2xl"
+      : "text-2xl sm:text-3xl"
+    : "text-sm sm:text-base";
+
+  const readerLineHeightClass = isReadabilityActive
+    ? readerLineHeight === "relaxed"
+      ? "leading-relaxed"
+      : readerLineHeight === "loose"
+      ? "leading-loose"
+      : "leading-[2.25]"
+    : "leading-relaxed";
+
+  const readerTextColorClass = isReadabilityActive
+    ? readerTheme === "paper"
+      ? "text-[#2C2825]"
+      : readerTheme === "dark"
+      ? "text-[#E8E8E8]"
+      : "text-[#18181B]"
+    : "text-black/85";
+
+  const readerHeadingColorClass = isReadabilityActive
+    ? readerTheme === "paper"
+      ? "text-[#1B1715]"
+      : readerTheme === "dark"
+      ? "text-white"
+      : "text-black"
+    : "text-black";
 
   // Manual markdown refinement state
   const [editedMarkdown, setEditedMarkdown] = useState<string>(markdown);
@@ -793,6 +905,53 @@ export const OutputView: React.FC<OutputViewProps> = ({
     };
   }, [displayMarkdown, activeMarkdown]);
 
+  // Reading progress tracking as user scrolls through study notes
+  const [readingProgress, setReadingProgress] = useState<number>(0);
+  const [isReadingActive, setIsReadingActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const containerHeight = rect.height;
+      const windowHeight = window.innerHeight;
+
+      // Note has not scrolled past top of viewport
+      if (rect.top >= 0) {
+        setReadingProgress(0);
+        setIsReadingActive(false);
+        return;
+      }
+
+      setIsReadingActive(true);
+      // Total scrollable height inside the note container
+      const totalScrollable = containerHeight - windowHeight;
+      if (totalScrollable <= 0) {
+        setReadingProgress(100);
+        return;
+      }
+
+      const scrolled = -rect.top;
+      const pct = Math.min(100, Math.max(0, (scrolled / totalScrollable) * 100));
+      setReadingProgress(Math.round(pct));
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [displayMarkdown, activeMarkdown]);
+
+  // Estimated reading time remaining based on scroll progress
+  const estimatedMinutesRemaining = useMemo(() => {
+    const fractionLeft = Math.max(0, 1 - readingProgress / 100);
+    return Math.ceil(fractionLeft * (readingStats.minutes || 1));
+  }, [readingProgress, readingStats.minutes]);
+
   // Export note/recipe to downloadable PDF file
   const handleExportPdf = async () => {
     if (isExportingPdf) return;
@@ -1011,7 +1170,15 @@ export const OutputView: React.FC<OutputViewProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="bg-white border border-black/15 rounded-2xl p-6 sm:p-8 shadow-xs mb-8 font-sans scroll-mt-20"
+      className={`rounded-2xl transition-all duration-300 mb-8 scroll-mt-20 ${
+        isReadabilityActive
+          ? readerTheme === "paper"
+            ? "bg-[#FAF7F0] text-[#2C2825] border-2 border-[#E5DECD] p-6 sm:p-12 shadow-lg"
+            : readerTheme === "dark"
+            ? "bg-[#18181B] text-[#EDEDED] border-2 border-neutral-700 p-6 sm:p-12 shadow-2xl"
+            : "bg-white text-[#18181B] border-2 border-black/15 p-6 sm:p-12 shadow-lg"
+          : "bg-white border border-black/15 p-6 sm:p-8 shadow-xs font-sans text-black"
+      }`}
     >
       {/* PRINT-SPECIFIC CLEAN DOCUMENT HEADER */}
       <div className="hidden print:block print-document-header">
@@ -1035,8 +1202,278 @@ export const OutputView: React.FC<OutputViewProps> = ({
         </div>
       </div>
       
-      {/* HEADER TOOLBAR */}
-      <div id="output-toolbar" className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6 print:hidden">
+      {/* GLOBAL VIEWPORT TOP READING PROGRESS BAR (Fills up smoothly as student scrolls) */}
+      <div
+        id="reading-progress-top-bar"
+        data-testid="reading-progress-top-bar"
+        className="fixed top-0 left-0 right-0 z-50 h-[3.5px] bg-transparent pointer-events-none print:hidden transition-opacity duration-300"
+        style={{ opacity: isReadingActive || readingProgress > 0 ? 1 : 0 }}
+        aria-hidden="true"
+      >
+        <div
+          className="h-full bg-gradient-to-r from-indigo-600 via-purple-600 to-emerald-500 transition-all duration-150 ease-out shadow-[0_0_10px_rgba(99,102,241,0.7)]"
+          style={{ width: `${readingProgress}%` }}
+        />
+      </div>
+
+      {/* READING PROGRESS BAR AT TOP OF OUTPUTVIEW */}
+      <div
+        id="reading-progress-header"
+        data-testid="reading-progress-header"
+        className="sticky top-[69px] z-20 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border border-black/10 rounded-xl p-3 mb-5 shadow-xs transition-all print:hidden"
+      >
+        <div className="flex items-center justify-between gap-3 text-xs mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center shrink-0">
+              <BookOpen className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-black dark:text-white tracking-tight">
+                Reading Progress
+              </span>
+              <span
+                id="reading-progress-percentage-badge"
+                data-testid="reading-progress-percentage"
+                className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200"
+              >
+                {readingProgress}%
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-black/60 font-medium">
+            {readingProgress >= 98 ? (
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                <Check className="w-3 h-3 stroke-[3]" /> Read Complete
+              </span>
+            ) : (
+              <span className="font-mono text-black/60">
+                {estimatedMinutesRemaining > 0
+                  ? `~${estimatedMinutesRemaining} min remaining`
+                  : readingStats.readingTime}
+              </span>
+            )}
+
+            {readingProgress > 15 && (
+              <button
+                type="button"
+                onClick={() => {
+                  containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="hover:text-black font-semibold underline cursor-pointer ml-1 text-black/50 flex items-center gap-0.5"
+                title="Scroll back to top of note"
+              >
+                <ArrowUp className="w-3 h-3" />
+                <span>Top</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Reading Progress Track */}
+        <div
+          id="reading-progress-track"
+          data-testid="reading-progress-track"
+          className="w-full bg-black/10 dark:bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5 border border-black/10"
+        >
+          <div
+            id="reading-progress-fill"
+            data-testid="reading-progress-fill"
+            className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 transition-all duration-150 ease-out shadow-xs"
+            style={{ width: `${readingProgress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* READABILITY MODE CONTROLS HEADER (Shown only in Readability Mode) */}
+      {isReadabilityActive && (
+        <div
+          id="readability-control-bar"
+          data-testid="readability-control-bar"
+          className="sticky top-[69px] z-30 mb-6 p-3 sm:p-4 rounded-2xl border-2 border-black bg-white/95 dark:bg-stone-900/95 backdrop-blur-md shadow-[4px_4px_0px_0px_rgba(0,0,0,0.9)] flex flex-wrap items-center justify-between gap-3 text-xs"
+        >
+          {/* Left: Exit & Badge */}
+          <div className="flex items-center gap-2">
+            <button
+              id="exit-readability-button"
+              data-testid="exit-readability-button"
+              onClick={() => handleToggleReadabilityMode(false)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl shadow-2xs transition-all cursor-pointer active:scale-95"
+              title="Exit Readability Mode (Esc)"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Exit Reader</span>
+              <kbd className="hidden sm:inline-block text-[9px] font-mono bg-white/20 text-white px-1.5 py-0.5 rounded ml-0.5">
+                Esc
+              </kbd>
+            </button>
+
+            <span className="font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5">
+              <BookOpen className="w-3 h-3 text-amber-600" />
+              <span>Focused Readability</span>
+            </span>
+          </div>
+
+          {/* Center/Right: Reader Typography & Theme Controls */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Font Size Selector */}
+            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/10 p-1 rounded-xl">
+              <span className="text-[10px] font-mono font-bold text-black/50 px-1.5 uppercase">
+                Size:
+              </span>
+              {(["standard", "large", "xl", "huge"] as const).map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => setReaderFontSize(sz)}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    readerFontSize === sz
+                      ? "bg-white dark:bg-black text-black dark:text-white shadow-2xs"
+                      : "text-black/60 dark:text-white/60 hover:text-black hover:bg-black/5"
+                  }`}
+                  title={`Font size: ${sz}`}
+                >
+                  {sz === "standard" ? "A" : sz === "large" ? "A+" : sz === "xl" ? "A++" : "A+++"}
+                </button>
+              ))}
+            </div>
+
+            {/* Line Height Selector */}
+            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/10 p-1 rounded-xl">
+              <span className="text-[10px] font-mono font-bold text-black/50 px-1.5 uppercase">
+                Spacing:
+              </span>
+              {(["relaxed", "loose", "spacious"] as const).map((lh) => (
+                <button
+                  key={lh}
+                  type="button"
+                  onClick={() => setReaderLineHeight(lh)}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer capitalize ${
+                    readerLineHeight === lh
+                      ? "bg-white dark:bg-black text-black dark:text-white shadow-2xs"
+                      : "text-black/60 dark:text-white/60 hover:text-black hover:bg-black/5"
+                  }`}
+                >
+                  {lh}
+                </button>
+              ))}
+            </div>
+
+            {/* Font Style Selector */}
+            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/10 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setReaderFontFamily("serif")}
+                className={`px-2 py-0.5 rounded-lg text-xs font-serif font-bold transition-all cursor-pointer ${
+                  readerFontFamily === "serif"
+                    ? "bg-white dark:bg-black text-black dark:text-white shadow-2xs"
+                    : "text-black/60 hover:text-black"
+                }`}
+                title="Serif Book font"
+              >
+                Serif
+              </button>
+              <button
+                type="button"
+                onClick={() => setReaderFontFamily("sans")}
+                className={`px-2 py-0.5 rounded-lg text-xs font-sans font-bold transition-all cursor-pointer ${
+                  readerFontFamily === "sans"
+                    ? "bg-white dark:bg-black text-black dark:text-white shadow-2xs"
+                    : "text-black/60 hover:text-black"
+                }`}
+                title="Sans-serif Modern font"
+              >
+                Sans
+              </button>
+            </div>
+
+            {/* Tone Theme Selector */}
+            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/10 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setReaderTheme("paper")}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  readerTheme === "paper"
+                    ? "bg-[#FAF7F0] text-[#2C2825] border border-amber-300 shadow-2xs"
+                    : "text-black/60 hover:text-black"
+                }`}
+                title="Warm Paper sepia theme"
+              >
+                <span>📜</span>
+                <span className="hidden md:inline">Paper</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReaderTheme("clean")}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  readerTheme === "clean"
+                    ? "bg-white text-black border border-black/20 shadow-2xs"
+                    : "text-black/60 hover:text-black"
+                }`}
+                title="Crisp White theme"
+              >
+                <span>📄</span>
+                <span className="hidden md:inline">White</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReaderTheme("dark")}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  readerTheme === "dark"
+                    ? "bg-[#18181B] text-white border border-neutral-600 shadow-2xs"
+                    : "text-black/60 hover:text-black"
+                }`}
+                title="Midnight Dark theme"
+              >
+                <span>🌙</span>
+                <span className="hidden md:inline">Dark</span>
+              </button>
+            </div>
+
+            {/* Quick Actions in Readability Mode */}
+            <div className="flex items-center gap-1.5 border-l border-black/15 dark:border-white/15 pl-2 ml-1">
+              <button
+                type="button"
+                id="readability-audio-button"
+                onClick={() => setIsAudioPlayerOpen((prev) => !prev)}
+                className={`p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isAudioPlayerOpen
+                    ? "bg-purple-600 text-white shadow-2xs"
+                    : "bg-purple-50 text-purple-900 hover:bg-purple-100 border border-purple-300"
+                }`}
+                title="Listen to note audio narration"
+              >
+                <Headphones className="w-3.5 h-3.5 text-purple-600" />
+                <span className="hidden md:inline">{isAudioPlayerOpen ? "Audio open" : "Listen"}</span>
+              </button>
+
+              <button
+                type="button"
+                id="readability-copy-button"
+                onClick={handleCopyRawMarkdown}
+                className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15 text-black dark:text-white transition-all cursor-pointer"
+                title="Copy raw markdown to clipboard"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="hidden md:inline text-emerald-700 font-bold">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <FileCode className="w-3.5 h-3.5 text-violet-600" />
+                    <span className="hidden md:inline">Copy MD</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HEADER TOOLBAR (Hidden in Readability Mode) */}
+      {!isReadabilityActive && (
+        <div id="output-toolbar" className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-black/10 pb-4 mb-6 print:hidden">
         
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -1129,6 +1566,23 @@ export const OutputView: React.FC<OutputViewProps> = ({
               <span>{isEditing ? "preview" : isManuallyEdited ? "edit (refined)" : "edit markdown"}</span>
             </button>
           )}
+
+          {/* Readability Mode Focus Button */}
+          <button
+            id="readability-toggle-button"
+            data-testid="readability-toggle-button"
+            onClick={() => handleToggleReadabilityMode(!isReadabilityActive)}
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              isReadabilityActive
+                ? "bg-amber-100 text-amber-950 border-amber-400 font-bold"
+                : "bg-white hover:bg-amber-50 text-black border-black/15 hover:border-amber-400"
+            }`}
+            title="Toggle distraction-free Readability Mode (hides navigation & sidebar, enlarges font size and line height)"
+            aria-label="Toggle Readability Mode"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-600 stroke-[2.5]" />
+            <span>readability mode</span>
+          </button>
 
           {/* Copy Raw Markdown Button - Primary Action */}
           <button
@@ -1422,6 +1876,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
 
         </div>
       </div>
+      )}
 
       {/* NOTION EXPORT MODAL */}
       <NotionExportModal
@@ -1518,7 +1973,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
       )}
 
       {/* CATEGORIZATION TAGS BAR */}
-      <div id="category-tags-bar" className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2 print:hidden">
+      {!isReadabilityActive && (
+        <div id="category-tags-bar" className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-black/70 mr-1 shrink-0">
           <Tag className="w-3.5 h-3.5 text-fuchsia-600" />
           <span>Categorize:</span>
@@ -1596,9 +2052,10 @@ export const OutputView: React.FC<OutputViewProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* CHEF RECEIPT & COST PER SERVING HIGHLIGHT BANNER */}
-      {chefStats && (
+      {!isReadabilityActive && chefStats && (
         <div className="mb-6 bg-[#FAF8F5] border border-black/15 rounded-2xl p-4 sm:p-5 shadow-xs font-sans">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 pb-3.5 mb-3.5">
             <div className="flex items-center gap-2.5">
@@ -1698,7 +2155,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       )}
 
       {/* SERVING SIZE MULTIPLIER & INGREDIENT RECALCULATOR */}
-      {(routeDetected === "chef" || ingredientsList.length > 0) && (
+      {!isReadabilityActive && (routeDetected === "chef" || ingredientsList.length > 0) && (
         <div id="recipe-servings-bar" className="mb-6 scroll-mt-24 print:hidden">
           <ServingMultiplierBar
             baseServings={baseServings}
@@ -1767,7 +2224,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
       )}
 
       {/* RAW MARKDOWN CONTENT BAR WITH QUICK COPY ACTION */}
-      <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-black/10 text-xs text-black/60 print:hidden">
+      {!isReadabilityActive && (
+        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-black/10 text-xs text-black/60 print:hidden">
         <div className="flex items-center gap-2 font-mono text-[11px]">
           <span className="bg-black/5 border border-black/10 px-2 py-0.5 rounded font-semibold text-black/75">
             markdown
@@ -1799,6 +2257,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           )}
         </button>
       </div>
+      )}
 
       {/* RAW MARKDOWN DISPLAY BOX WITH CLEAN PAPER STYLING & STAGGERED REVEAL ANIMATIONS */}
       <motion.div
@@ -1806,14 +2265,14 @@ export const OutputView: React.FC<OutputViewProps> = ({
         variants={markdownContainerVariants}
         initial="hidden"
         animate="visible"
-        className="prose max-w-none text-black"
+        className={`prose max-w-none transition-all duration-200 ${readerFontFamilyClass} ${readerTextColorClass}`}
       >
         <Markdown
           components={{
             h1: ({ children }) => (
               <motion.h1
                 variants={itemRevealVariants}
-                className="text-2xl sm:text-3xl font-bold text-black border-b border-black/15 pb-2.5 my-4"
+                className={`${readerHeadingSizeClass} ${readerHeadingColorClass} font-bold border-b border-black/15 pb-2.5 my-4 transition-all`}
               >
                 {children}
               </motion.h1>
@@ -1826,11 +2285,17 @@ export const OutputView: React.FC<OutputViewProps> = ({
               return (
                 <motion.h2
                   variants={itemRevealVariants}
-                  className={`text-lg font-bold text-black border-l-4 pl-3 py-1 mt-6 mb-3 flex items-center justify-between gap-2 rounded-r-lg ${
+                  className={`${readerSubheadingSizeClass} ${readerHeadingColorClass} font-bold border-l-4 pl-3 py-1 mt-6 mb-3 flex items-center justify-between gap-2 rounded-r-lg transition-all ${
                     isIngredientSection
-                      ? "border-emerald-500 bg-emerald-50/50"
+                      ? isReadabilityActive && readerTheme === "dark"
+                        ? "border-emerald-500 bg-emerald-950/40 text-emerald-300"
+                        : "border-emerald-500 bg-emerald-50/50"
                       : isStepSection
-                      ? "border-amber-500 bg-amber-50/40"
+                      ? isReadabilityActive && readerTheme === "dark"
+                        ? "border-amber-500 bg-amber-950/40 text-amber-300"
+                        : "border-amber-500 bg-amber-50/40"
+                      : isReadabilityActive && readerTheme === "dark"
+                      ? "border-indigo-400 bg-indigo-950/40 text-indigo-300"
                       : "border-indigo-500 bg-indigo-50/30"
                   }`}
                 >
@@ -1858,7 +2323,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             h3: ({ children }) => (
               <motion.h3
                 variants={itemRevealVariants}
-                className="text-base font-bold text-black mt-4 mb-2"
+                className={`${readerH3SizeClass} ${readerHeadingColorClass} font-bold mt-4 mb-2 transition-all`}
               >
                 {children}
               </motion.h3>
@@ -1886,7 +2351,13 @@ export const OutputView: React.FC<OutputViewProps> = ({
                     id={props.stepIndex ? `recipe-step-${props.stepIndex}` : undefined}
                     variants={stepItemVariants}
                     whileHover={{ scale: 1.006, transition: { duration: 0.15 } }}
-                    className="flex flex-col bg-[#FAF8F5] border border-black/15 hover:border-black/30 p-3.5 sm:p-4 rounded-xl font-medium text-sm text-black/90 transition-all shadow-2xs scroll-mt-24 group"
+                    className={`flex flex-col border p-3.5 sm:p-4 rounded-xl font-medium transition-all shadow-2xs scroll-mt-24 group ${
+                      isReadabilityActive && readerTheme === "dark"
+                        ? "bg-neutral-800/80 border-neutral-700 text-neutral-200 hover:border-neutral-500"
+                        : isReadabilityActive && readerTheme === "paper"
+                        ? "bg-[#F4F0E6] border-[#E2DBC8] text-[#2C2825] hover:border-[#D5CDBD]"
+                        : "bg-[#FAF8F5] border-black/15 hover:border-black/30 text-black/90"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2.5">
                       <div className="flex items-start gap-2.5 flex-1 min-w-0">
@@ -1898,7 +2369,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
                         ) : (
                           <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
                         )}
-                        <div className="flex-1 leading-relaxed text-black/90">{children}</div>
+                        <div className={`flex-1 ${readerBodyTextClass} ${readerLineHeightClass} ${isReadabilityActive && readerTheme === "dark" ? "text-neutral-200" : "text-black/90"}`}>{children}</div>
                       </div>
 
                       {/* Detected time pill if present */}
@@ -1935,11 +2406,17 @@ export const OutputView: React.FC<OutputViewProps> = ({
                 <motion.li
                   variants={ingredientItemVariants}
                   whileHover={{ scale: 1.006, transition: { duration: 0.15 } }}
-                  className="flex items-start gap-3 bg-[#FAF8F5] border border-black/10 hover:border-black/25 p-3.5 rounded-xl font-medium text-sm text-black/90 transition-colors shadow-2xs"
+                  className={`flex items-start gap-3 border p-3.5 rounded-xl font-medium transition-colors shadow-2xs ${
+                    isReadabilityActive && readerTheme === "dark"
+                      ? "bg-neutral-800/80 border-neutral-700 text-neutral-200 hover:border-neutral-500"
+                      : isReadabilityActive && readerTheme === "paper"
+                      ? "bg-[#F4F0E6] border-[#E2DBC8] text-[#2C2825] hover:border-[#D5CDBD]"
+                      : "bg-[#FAF8F5] border-black/10 hover:border-black/25 text-black/90"
+                  }`}
                 >
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
                   <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
-                    <span className="leading-relaxed">{children}</span>
+                    <span className={`${readerBodyTextClass} ${readerLineHeightClass}`}>{children}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {ingNutrition && ingNutrition.calories > 0 && (
                         <span
@@ -1984,7 +2461,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
             p: ({ children }) => (
               <motion.p
                 variants={itemRevealVariants}
-                className="text-sm sm:text-base font-normal leading-relaxed my-3 text-black/80"
+                className={`${readerBodyTextClass} ${readerLineHeightClass} ${readerTextColorClass} font-normal my-3 transition-all`}
               >
                 {children}
               </motion.p>
@@ -1992,13 +2469,23 @@ export const OutputView: React.FC<OutputViewProps> = ({
             blockquote: ({ children }) => (
               <motion.blockquote
                 variants={itemRevealVariants}
-                className="border-l-4 border-indigo-200 pl-4 py-1 my-3 text-black/70 italic text-sm"
+                className={`border-l-4 ${
+                  isReadabilityActive && readerTheme === "dark"
+                    ? "border-neutral-500 bg-neutral-800/40 text-neutral-300"
+                    : isReadabilityActive && readerTheme === "paper"
+                    ? "border-amber-400 bg-amber-50/50 text-[#3C3530]"
+                    : "border-indigo-200 text-black/70 bg-indigo-50/20"
+                } pl-4 py-1.5 my-3 italic ${readerBodyTextClass} ${readerLineHeightClass} rounded-r-lg transition-all`}
               >
                 {children}
               </motion.blockquote>
             ),
             strong: ({ children }) => (
-              <strong className="font-semibold text-black bg-amber-100/70 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-xs">
+              <strong className={`font-semibold ${
+                isReadabilityActive && readerTheme === "dark"
+                  ? "text-amber-300 bg-amber-950/60"
+                  : "text-black bg-amber-100/70 dark:bg-amber-950/40"
+              } px-1.5 py-0.5 rounded text-xs`}>
                 {children}
               </strong>
             ),
@@ -2018,7 +2505,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       </motion.div>
 
       {/* DORM CHEF NUTRITIONAL PROFILE & MACROS ESTIMATION CARD */}
-      {(routeDetected === "chef" || ingredientsList.length > 0) && (
+      {!isReadabilityActive && (routeDetected === "chef" || ingredientsList.length > 0) && (
         <RecipeNutritionCard
           recipeText={displayMarkdown}
           ingredients={scaledIngredientsList}
@@ -2030,7 +2517,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
       )}
 
       {/* DORM CHEF D3 RECIPE COST CATEGORY BREAKDOWN CHART */}
-      {(routeDetected === "chef" || ingredientsList.length > 0) &&
+      {!isReadabilityActive && (routeDetected === "chef" || ingredientsList.length > 0) &&
         (Boolean(budget && budget.trim().length > 0) || Boolean(chefStats?.remainingBudget)) && (
           <RecipeCostD3Chart
             ingredients={scaledIngredientsList}
@@ -2049,7 +2536,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
         )}
 
       {/* RECIPE CHECKBOX-BASED GROCERY LIST */}
-      {scaledIngredientsList.length > 0 && (
+      {!isReadabilityActive && scaledIngredientsList.length > 0 && (
         <div id="recipe-grocery-list" className="scroll-mt-6">
           <ShoppingChecklist
             ingredients={scaledIngredientsList}

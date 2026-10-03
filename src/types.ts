@@ -7,6 +7,14 @@ export interface FileAttachment {
   previewUrl?: string;
 }
 
+export interface StudyFolder {
+  id: string;
+  name: string;
+  color?: "indigo" | "emerald" | "amber" | "rose" | "purple" | "blue" | "stone";
+  createdAt: number;
+  icon?: string;
+}
+
 export interface UntangleHistoryItem {
   id: string;
   timestamp: number;
@@ -18,6 +26,7 @@ export interface UntangleHistoryItem {
   budget?: string;
   tags: string[];
   pinned?: boolean;
+  folderId?: string | null;
 }
 
 export interface Flashcard {

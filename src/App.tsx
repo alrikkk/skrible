@@ -8,7 +8,7 @@ import { HistoryDrawer } from "./components/HistoryDrawer";
 import { LoginScreen, UserProfile } from "./components/LoginScreen";
 import { ScribbleLogo } from "./components/ScribbleLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample } from "./types";
+import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample, StudyFolder } from "./types";
 import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus, AlertCircle, Check, X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "./context/AuthContext";
@@ -86,6 +86,22 @@ export default function App() {
   const [history, setHistory] = useState<UntangleHistoryItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [isReadabilityMode, setIsReadabilityMode] = useState<boolean>(false);
+
+  // Folders state for study note organization
+  const [folders, setFolders] = useState<StudyFolder[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("skrible_folders");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return [
+      { id: "folder-biology", name: "Biology & Science", color: "emerald", createdAt: Date.now() - 3600000 },
+      { id: "folder-examprep", name: "Exam Prep", color: "indigo", createdAt: Date.now() - 7200000 },
+      { id: "folder-recipes", name: "Dorm Recipes", color: "amber", createdAt: Date.now() - 10800000 },
+    ];
+  });
 
   // Flashcards state
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
@@ -544,6 +560,45 @@ export default function App() {
     });
   };
 
+  // Update Folders list (create, rename, delete)
+  const handleUpdateFolders = (newFolders: StudyFolder[]) => {
+    setFolders(newFolders);
+    try {
+      localStorage.setItem("skrible_folders", JSON.stringify(newFolders));
+      if (session?.user && currentUser?.provider !== "guest") {
+        localStorage.setItem(`skrible_folders_${session.user.id}`, JSON.stringify(newFolders));
+      }
+    } catch (e) {
+      console.error("Failed to save folders:", e);
+    }
+  };
+
+  // Move single note to a folder (or unfile if folderId is null)
+  const handleMoveNoteToFolder = (noteId: string, folderId: string | null) => {
+    setHistory((prev) => {
+      const updated = prev.map((item) =>
+        item.id === noteId ? { ...item, folderId: folderId } : item
+      );
+      try {
+        localStorage.setItem("skrible_history", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // Bulk move notes to a folder
+  const handleBulkMoveToFolder = (noteIds: string[], folderId: string | null) => {
+    setHistory((prev) => {
+      const updated = prev.map((item) =>
+        noteIds.includes(item.id) ? { ...item, folderId: folderId } : item
+      );
+      try {
+        localStorage.setItem("skrible_history", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
   // Clear all history
   const handleClearAllHistory = () => {
     setShowClearAllModal(true);
@@ -698,8 +753,9 @@ export default function App() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Header Navigation for Workspace Page */}
-            <header className="sticky top-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-black/10 dark:border-white/10 py-4 px-4 sm:px-8">
+            {/* Header Navigation for Workspace Page (Hidden in Readability Mode) */}
+            {!isReadabilityMode && (
+              <header className="sticky top-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-black/10 dark:border-white/10 py-4 px-4 sm:px-8">
               <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <button
@@ -781,8 +837,9 @@ export default function App() {
                 </div>
               </div>
             </header>
+          )}
 
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 transition-all duration-200 ease-out">
+          <main className={`${isReadabilityMode ? "max-w-4xl mx-auto px-4 sm:px-6 pt-3" : "max-w-5xl mx-auto px-4 sm:px-6 pt-6"} transition-all duration-200 ease-out`}>
               {/* Peer Shared Note Loading State */}
               {isLoadingSharedNote && (
                 <div className="bg-white dark:bg-stone-900 border-2 border-black rounded-2xl p-5 mb-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3">
@@ -857,27 +914,31 @@ export default function App() {
               )}
 
               {/* Preset Test Scenarios Bar */}
-              <div className="print:hidden mb-6">
-                <PresetBar onSelectPreset={handleSelectPreset} />
-              </div>
+              {!isReadabilityMode && (
+                <div className="print:hidden mb-6">
+                  <PresetBar onSelectPreset={handleSelectPreset} />
+                </div>
+              )}
 
               {/* Input Panel */}
-              <div id="input-panel-section" className="print:hidden">
-                <InputPanel
-                  route={route}
-                  setRoute={setRoute}
-                  promptText={promptText}
-                  setPromptText={setPromptText}
-                  budget={budget}
-                  setBudget={setBudget}
-                  files={files}
-                  setFiles={setFiles}
-                  audioAttachment={audioAttachment}
-                  setAudioAttachment={setAudioAttachment}
-                  onSubmit={handleUntangle}
-                  isLoading={isLoading}
-                />
-              </div>
+              {!isReadabilityMode && (
+                <div id="input-panel-section" className="print:hidden">
+                  <InputPanel
+                    route={route}
+                    setRoute={setRoute}
+                    promptText={promptText}
+                    setPromptText={setPromptText}
+                    budget={budget}
+                    setBudget={setBudget}
+                    files={files}
+                    setFiles={setFiles}
+                    audioAttachment={audioAttachment}
+                    setAudioAttachment={setAudioAttachment}
+                    onSubmit={handleUntangle}
+                    isLoading={isLoading}
+                  />
+                </div>
+              )}
 
               {/* Output Section */}
               {outputMarkdown && (
@@ -891,6 +952,13 @@ export default function App() {
                   isSaved={isSaved}
                   onNewUntangle={handleReset}
                   isReadOnly={Boolean(sharedNoteMeta)}
+                  isReadabilityMode={isReadabilityMode}
+                  onToggleReadability={(active) => {
+                    setIsReadabilityMode(active);
+                    if (active) {
+                      setIsHistoryOpen(false);
+                    }
+                  }}
                   onUpdateMarkdown={(updated) => {
                     setOutputMarkdown(updated);
                     setIsSaved(false);
@@ -903,15 +971,21 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer Notice */}
-      <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-2">
-        <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none">
-          This is not Ai Slop
-        </p>
-      </footer>
+      {!isReadabilityMode && (
+        <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-2">
+          <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none">
+            This is not Ai Slop
+          </p>
+        </footer>
+      )}
 
       {/* History Drawer */}
       <HistoryDrawer
         history={history}
+        folders={folders}
+        onUpdateFolders={handleUpdateFolders}
+        onMoveNoteToFolder={handleMoveNoteToFolder}
+        onBulkMoveToFolder={handleBulkMoveToFolder}
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         onSelectHistory={(item) => {

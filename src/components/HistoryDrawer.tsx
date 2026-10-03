@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { UntangleHistoryItem } from "../types";
+import { UntangleHistoryItem, StudyFolder } from "../types";
 import {
   X,
   Trash2,
@@ -19,6 +19,11 @@ import {
   Share2,
   Sparkles,
   FileDown,
+  Folder,
+  FolderPlus,
+  FolderOpen,
+  Edit2,
+  ChevronDown,
 } from "lucide-react";
 import { isWebShareSupported, shareViaWebShare, SharePayloadOptions } from "../utils/webShare";
 import { ShareModal } from "./ShareModal";
@@ -52,8 +57,88 @@ const highlightKeywordMatch = (text: string, query: string): React.ReactNode => 
   );
 };
 
+export const FOLDER_COLOR_STYLES: Record<string, {
+  pillBg: string;
+  pillText: string;
+  pillBorder: string;
+  badgeBg: string;
+  activeBg: string;
+  iconColor: string;
+}> = {
+  indigo: {
+    pillBg: "bg-indigo-50",
+    pillText: "text-indigo-950",
+    pillBorder: "border-indigo-300",
+    badgeBg: "bg-indigo-600 text-white",
+    activeBg: "bg-indigo-600 text-white",
+    iconColor: "text-indigo-600",
+  },
+  emerald: {
+    pillBg: "bg-emerald-50",
+    pillText: "text-emerald-950",
+    pillBorder: "border-emerald-300",
+    badgeBg: "bg-emerald-600 text-white",
+    activeBg: "bg-emerald-600 text-white",
+    iconColor: "text-emerald-600",
+  },
+  amber: {
+    pillBg: "bg-amber-50",
+    pillText: "text-amber-950",
+    pillBorder: "border-amber-300",
+    badgeBg: "bg-amber-600 text-white",
+    activeBg: "bg-amber-600 text-white",
+    iconColor: "text-amber-600",
+  },
+  rose: {
+    pillBg: "bg-rose-50",
+    pillText: "text-rose-950",
+    pillBorder: "border-rose-300",
+    badgeBg: "bg-rose-600 text-white",
+    activeBg: "bg-rose-600 text-white",
+    iconColor: "text-rose-600",
+  },
+  purple: {
+    pillBg: "bg-purple-50",
+    pillText: "text-purple-950",
+    pillBorder: "border-purple-300",
+    badgeBg: "bg-purple-600 text-white",
+    activeBg: "bg-purple-600 text-white",
+    iconColor: "text-purple-600",
+  },
+  blue: {
+    pillBg: "bg-blue-50",
+    pillText: "text-blue-950",
+    pillBorder: "border-blue-300",
+    badgeBg: "bg-blue-600 text-white",
+    activeBg: "bg-blue-600 text-white",
+    iconColor: "text-blue-600",
+  },
+  stone: {
+    pillBg: "bg-stone-100",
+    pillText: "text-stone-950",
+    pillBorder: "border-stone-300",
+    badgeBg: "bg-stone-700 text-white",
+    activeBg: "bg-stone-800 text-white",
+    iconColor: "text-stone-700",
+  },
+};
+
+const FOLDER_COLORS = ["indigo", "emerald", "amber", "rose", "purple", "blue", "stone"] as const;
+const SUGGESTED_FOLDER_NAMES = [
+  "Biology 101",
+  "Exam Prep",
+  "Calculus",
+  "Dorm Recipes",
+  "Chemistry",
+  "World History",
+];
+
 interface HistoryDrawerProps {
   history: UntangleHistoryItem[];
+  folders?: StudyFolder[];
+  onUpdateFolders?: (folders: StudyFolder[]) => void;
+  onMoveNoteToFolder?: (noteId: string, folderId: string | null) => void;
+  onBulkMoveToFolder?: (noteIds: string[], folderId: string | null) => void;
   isOpen: boolean;
   onClose: () => void;
   onSelectHistory: (item: UntangleHistoryItem) => void;
@@ -68,6 +153,10 @@ const DEFAULT_SUGGESTED_TAGS = ["Finance", "Biology", "Project", "Exam Prep", "W
 
 export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
   history,
+  folders = [],
+  onUpdateFolders,
+  onMoveNoteToFolder,
+  onBulkMoveToFolder,
   isOpen,
   onClose,
   onSelectHistory,
@@ -82,6 +171,22 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Folders State
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null); // null = all, "unfiled" = unfiled, or folder.id
+  const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
+  const [newFolderName, setNewFolderName] = useState<string>("");
+  const [newFolderColor, setNewFolderColor] = useState<"indigo" | "emerald" | "amber" | "rose" | "purple" | "blue" | "stone">("indigo");
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState<string>("");
+  const [editingFolderColor, setEditingFolderColor] = useState<"indigo" | "emerald" | "amber" | "rose" | "purple" | "blue" | "stone">("indigo");
+
+  // Single note folder picker popover
+  const [activeFolderPickerNoteId, setActiveFolderPickerNoteId] = useState<string | null>(null);
+
+  // Bulk folder move modal state
+  const [isBulkFolderModalOpen, setIsBulkFolderModalOpen] = useState<boolean>(false);
+  const [bulkNewFolderName, setBulkNewFolderName] = useState<string>("");
 
   // Adding tag inline state
   const [activeTaggingId, setActiveTaggingId] = useState<string | null>(null);
@@ -163,6 +268,43 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
+  // Click outside to close note folder picker popover
+  useEffect(() => {
+    if (!activeFolderPickerNoteId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest?.(".folder-picker-container")) {
+        setActiveFolderPickerNoteId(null);
+      }
+    };
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [activeFolderPickerNoteId]);
+
+  const currentFolders = folders || [];
+
+  // Compute note counts per folder, unfiled notes, and total
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    currentFolders.forEach((f) => {
+      counts[f.id] = 0;
+    });
+    let unfiled = 0;
+    history.forEach((item) => {
+      if (item.folderId && counts[item.folderId] !== undefined) {
+        counts[item.folderId] += 1;
+      } else {
+        unfiled += 1;
+      }
+    });
+    return { counts, unfiled, total: history.length };
+  }, [history, currentFolders]);
+
+  const activeFolder = useMemo(() => {
+    if (!selectedFolderId || selectedFolderId === "unfiled") return null;
+    return currentFolders.find((f) => f.id === selectedFolderId) || null;
+  }, [selectedFolderId, currentFolders]);
+
   // Extract all unique tags across history
   const allUniqueTags = useMemo(() => {
     const tagCountMap: Record<string, number> = {};
@@ -179,10 +321,21 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
     return Object.entries(tagCountMap).map(([tag, count]) => ({ tag, count }));
   }, [history]);
 
-  // Multi-token keyword search matching title, tags, or content
+  // Multi-token keyword search matching title, tags, content, or folder name
   const filtered = useMemo(() => {
     return history.filter((item) => {
       const rawQuery = search.trim().toLowerCase();
+
+      // Folder filter
+      if (selectedFolderId === "unfiled") {
+        if (item.folderId && currentFolders.some((f) => f.id === item.folderId)) {
+          return false;
+        }
+      } else if (selectedFolderId) {
+        if (item.folderId !== selectedFolderId) {
+          return false;
+        }
+      }
 
       // Route filter
       const matchesRoute = filterRoute === "all" || item.routeDetected === filterRoute;
@@ -199,7 +352,6 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
       if (!rawQuery) return true;
 
       // Split query into tokens for multi-keyword matching
-      // Strip leading '#' so typing #biology or biology both match
       const tokens = rawQuery
         .split(/\s+/)
         .map((t) => t.replace(/^#+/, "").trim())
@@ -212,17 +364,18 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
       const promptLower = (item.inputPrompt || "").toLowerCase();
       const markdownLower = (item.outputMarkdown || "").toLowerCase();
 
-      // Every keyword token must match either title, tags, prompt, or content
+      const itemFolder = item.folderId ? currentFolders.find((f) => f.id === item.folderId) : null;
+      const folderNameLower = itemFolder ? itemFolder.name.toLowerCase() : "";
+
+      // Every keyword token must match either title, tags, folder, prompt, or content
       return tokens.every((token) => {
-        // Tag keyword match
+        if (folderNameLower.includes(token)) return true;
         if (tagsLower.some((t) => t.includes(token))) return true;
-        // Title keyword match
         if (titleLower.includes(token)) return true;
-        // Fallback: prompt or output markdown match
         return promptLower.includes(token) || markdownLower.includes(token);
       });
     });
-  }, [history, search, filterRoute, selectedTag]);
+  }, [history, search, filterRoute, selectedTag, selectedFolderId, currentFolders]);
 
   if (!isOpen) return null;
 
@@ -284,6 +437,81 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
   const handleExitSelectionMode = () => {
     setIsSelectionMode(false);
     setSelectedIds(new Set());
+  };
+
+  // Folder Action Handlers
+  const handleCreateFolder = (customName?: string, customColor?: any) => {
+    const nameToUse = (customName || newFolderName).trim();
+    if (!nameToUse) return;
+    const colorToUse = customColor || newFolderColor || "indigo";
+    const newFolder: StudyFolder = {
+      id: `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: nameToUse,
+      color: colorToUse,
+      createdAt: Date.now(),
+    };
+    const updated = [...currentFolders, newFolder];
+    onUpdateFolders?.(updated);
+    setNewFolderName("");
+    setIsCreatingFolder(false);
+    setSelectedFolderId(newFolder.id);
+    return newFolder;
+  };
+
+  const handleSaveEditFolder = (folderId: string) => {
+    const trimmed = editingFolderName.trim();
+    if (!trimmed) return;
+    const updated = currentFolders.map((f) =>
+      f.id === folderId ? { ...f, name: trimmed, color: editingFolderColor } : f
+    );
+    onUpdateFolders?.(updated);
+    setEditingFolderId(null);
+  };
+
+  const handleDeleteFolder = (folderId: string) => {
+    const targetFolder = currentFolders.find((f) => f.id === folderId);
+    if (!targetFolder) return;
+    const countInFolder = folderCounts.counts[folderId] || 0;
+    if (
+      confirm(
+        `Delete folder "${targetFolder.name}"? ${
+          countInFolder > 0
+            ? `Your ${countInFolder} saved note${countInFolder > 1 ? "s" : ""} will not be deleted; they will be moved to Unfiled.`
+            : ""
+        }`
+      )
+    ) {
+      // Unfile notes in this folder
+      const notesInFolder = history.filter((h) => h.folderId === folderId).map((h) => h.id);
+      if (notesInFolder.length > 0) {
+        onBulkMoveToFolder?.(notesInFolder, null);
+      }
+      const updated = currentFolders.filter((f) => f.id !== folderId);
+      onUpdateFolders?.(updated);
+      if (selectedFolderId === folderId) {
+        setSelectedFolderId(null);
+      }
+    }
+  };
+
+  const handleAssignNoteToFolder = (noteId: string, folderId: string | null) => {
+    onMoveNoteToFolder?.(noteId, folderId);
+    setActiveFolderPickerNoteId(null);
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([20]);
+    }
+  };
+
+  const handleBulkMove = (folderId: string | null) => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    onBulkMoveToFolder?.(ids, folderId);
+    setIsBulkFolderModalOpen(false);
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([30, 20]);
+    }
   };
 
   const handleAddTagToItem = (itemId: string, tagToAdd: string) => {
@@ -540,104 +768,401 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
           </div>
         </div>
 
-        {/* Tag Filter Toggle Bar */}
-        <div className="mb-4 pb-3 border-b-2 border-black/20">
-          <div className="flex items-center justify-between gap-1 mb-1.5">
-            <span className="text-[11px] font-black uppercase tracking-wider text-black flex items-center gap-1">
-              <Tag className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Filter by Tag:</span>
+        {/* STUDY FOLDERS SECTION */}
+        <div id="history-folders-section" className="mb-3 pb-2.5 border-b-2 border-black/20">
+          <div className="flex items-center justify-between gap-1 mb-2">
+            <span className="text-[11px] font-black uppercase tracking-wider text-black flex items-center gap-1.5">
+              <Folder className="w-3.5 h-3.5 text-amber-600 stroke-[2.5]" />
+              <span>Study Folders ({currentFolders.length}):</span>
             </span>
-            {selectedTag && (
-              <button
-                onClick={() => setSelectedTag(null)}
-                className="text-[10px] font-bold text-[#ec4899] hover:underline flex items-center gap-0.5 cursor-pointer"
-              >
-                Clear Tag Filter
-              </button>
-            )}
+
+            <button
+              id="create-new-folder-button"
+              data-testid="create-new-folder"
+              type="button"
+              onClick={() => {
+                setIsCreatingFolder((prev) => !prev);
+                setNewFolderName("");
+              }}
+              className="text-[10px] font-bold bg-[#FFF4E0] hover:bg-amber-200 text-black border-2 border-black px-2 py-0.5 rounded shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+              title="Create a new custom folder for study organization"
+            >
+              <Plus className="w-3 h-3 stroke-[3]" />
+              <span>New Folder</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {/* Inline Folder Creation Form */}
+          {isCreatingFolder && (
+            <div className="mb-2.5 p-2.5 bg-amber-50 border-2 border-black rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-black uppercase text-black flex items-center gap-1">
+                  <FolderPlus className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Create Custom Folder</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingFolder(false)}
+                  className="text-black hover:text-red-500 cursor-pointer p-0.5"
+                >
+                  <X className="w-3.5 h-3.5 stroke-[3]" />
+                </button>
+              </div>
+
+              <div className="flex gap-1.5 mb-2">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateFolder();
+                    if (e.key === "Escape") setIsCreatingFolder(false);
+                  }}
+                  placeholder="Folder name (e.g. Biology 101, Midterms)..."
+                  className="flex-1 bg-white border border-black px-2 py-1 text-xs font-bold text-black outline-none focus:ring-1 focus:ring-amber-500"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCreateFolder()}
+                  disabled={!newFolderName.trim()}
+                  className="bg-black hover:bg-indigo-600 disabled:opacity-50 text-white font-black text-[10px] uppercase px-3 py-1 border border-black cursor-pointer shadow-2xs transition-colors"
+                >
+                  Create
+                </button>
+              </div>
+
+              {/* Color Swatches */}
+              <div className="flex items-center justify-between gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-bold text-black/60 uppercase">Theme:</span>
+                  {FOLDER_COLORS.map((col) => {
+                    const isSelected = newFolderColor === col;
+                    return (
+                      <button
+                        key={col}
+                        type="button"
+                        onClick={() => setNewFolderColor(col)}
+                        className={`w-4 h-4 rounded-full border-2 transition-transform cursor-pointer ${
+                          isSelected ? "border-black scale-125 shadow-xs ring-1 ring-black" : "border-black/30 hover:scale-110"
+                        } ${
+                          col === "indigo"
+                            ? "bg-indigo-500"
+                            : col === "emerald"
+                            ? "bg-emerald-500"
+                            : col === "amber"
+                            ? "bg-amber-500"
+                            : col === "rose"
+                            ? "bg-rose-500"
+                            : col === "purple"
+                            ? "bg-purple-500"
+                            : col === "blue"
+                            ? "bg-blue-500"
+                            : "bg-stone-600"
+                        }`}
+                        title={col}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-[8px] font-mono text-black/40">Suggested:</span>
+                  {SUGGESTED_FOLDER_NAMES.slice(0, 2).map((sugg) => (
+                    <button
+                      key={sugg}
+                      type="button"
+                      onClick={() => setNewFolderName(sugg)}
+                      className="text-[9px] font-medium underline text-black/70 hover:text-black cursor-pointer"
+                    >
+                      {sugg}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Folder Chips Slider */}
+          <div id="folders-bar" className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+            {/* All Notes Chip */}
             <button
-              onClick={() => setSelectedTag(null)}
-              className={`text-[11px] font-bold px-2.5 py-1 border-2 border-black whitespace-nowrap transition-all cursor-pointer ${
-                selectedTag === null
-                  ? "bg-black text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                  : "bg-white text-black hover:bg-gray-100"
+              id="folder-tab-all"
+              data-testid="folder-tab-all"
+              type="button"
+              onClick={() => setSelectedFolderId(null)}
+              className={`text-[11px] font-bold px-2.5 py-1 border-2 whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer rounded-sm ${
+                selectedFolderId === null
+                  ? "bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  : "bg-white text-black border-black/20 hover:border-black hover:bg-stone-50"
               }`}
             >
-              All Tags
+              <Folder className="w-3 h-3" />
+              <span>All Notes</span>
+              <span className={`text-[9px] px-1 py-0.2 rounded-full font-black ${selectedFolderId === null ? "bg-white text-black" : "bg-black/10 text-black"}`}>
+                {folderCounts.total}
+              </span>
             </button>
 
-            {allUniqueTags.length > 0 ? (
-              allUniqueTags.map(({ tag, count }) => {
-                const isTagActive = selectedTag?.toLowerCase() === tag.toLowerCase();
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => setSelectedTag(isTagActive ? null : tag)}
-                    className={`text-[11px] font-bold px-2.5 py-1 border-2 border-black rounded-sm whitespace-nowrap flex items-center gap-1 transition-all cursor-pointer ${
-                      isTagActive
-                        ? "bg-[#ec4899] text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                        : "bg-[#FFF4E0] text-black hover:bg-pink-100"
-                    }`}
-                  >
-                    <span>#{tag}</span>
-                    <span
-                      className={`text-[9px] px-1 py-0.2 rounded-full font-black ${
-                        isTagActive ? "bg-white text-black" : "bg-black/10 text-black"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })
-            ) : (
-              <span className="text-[10px] text-gray-500 italic py-1">
-                Add tags to your notes to categorize them (e.g., Finance, Biology, Project)
-              </span>
-            )}
-          </div>
-        </div>
+            {/* Custom Folders */}
+            {currentFolders.map((folder) => {
+              const isSelected = selectedFolderId === folder.id;
+              const count = folderCounts.counts[folder.id] || 0;
+              const colStyle = FOLDER_COLOR_STYLES[folder.color || "indigo"] || FOLDER_COLOR_STYLES.indigo;
 
-        {/* Bulk Selection Control Bar */}
-        {isSelectionMode && (
-          <div className="bg-[#FF90E8] border-3 border-black p-3 mb-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex flex-wrap items-center justify-between gap-2 animate-fadeIn">
+              return (
+                <button
+                  key={folder.id}
+                  id={`folder-tab-${folder.id}`}
+                  data-testid={`folder-tab-${folder.id}`}
+                  type="button"
+                  onClick={() => setSelectedFolderId(isSelected ? null : folder.id)}
+                  className={`text-[11px] font-bold px-2.5 py-1 border-2 rounded-sm whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isSelected
+                      ? `${colStyle.activeBg} border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`
+                      : `${colStyle.pillBg} ${colStyle.pillText} ${colStyle.pillBorder} hover:border-black`
+                  }`}
+                >
+                  <FolderOpen className={`w-3 h-3 ${isSelected ? "text-white" : colStyle.iconColor}`} />
+                  <span>{folder.name}</span>
+                  <span className={`text-[9px] px-1 py-0.2 rounded-full font-black ${isSelected ? "bg-white text-black" : "bg-black/10 text-black"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Unfiled Chip */}
             <button
-              onClick={handleToggleSelectAll}
-              className="flex items-center gap-1.5 bg-white border-2 border-black px-2.5 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-stone-100 cursor-pointer"
+              id="folder-tab-unfiled"
+              data-testid="folder-tab-unfiled"
+              type="button"
+              onClick={() => setSelectedFolderId(selectedFolderId === "unfiled" ? null : "unfiled")}
+              className={`text-[11px] font-bold px-2.5 py-1 border-2 whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer rounded-sm ${
+                selectedFolderId === "unfiled"
+                  ? "bg-neutral-800 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  : "bg-neutral-50 text-neutral-600 border-dashed border-black/25 hover:border-black hover:text-black"
+              }`}
+              title="Notes not assigned to any folder"
             >
-              {allFilteredSelected ? (
-                <>
-                  <CheckSquare className="w-4 h-4 text-black stroke-[2.5]" />
-                  <span>Deselect</span>
-                </>
+              <span>Unfiled</span>
+              <span className={`text-[9px] px-1 py-0.2 rounded-full font-black ${selectedFolderId === "unfiled" ? "bg-white text-black" : "bg-black/10 text-black"}`}>
+                {folderCounts.unfiled}
+              </span>
+            </button>
+          </div>
+
+          {/* Active Folder Subheader Banner (with Edit & Delete options) */}
+          {activeFolder && (
+            <div className="mt-2.5 p-2 bg-[#FFF9E6] border-2 border-black rounded flex items-center justify-between gap-2 text-xs shadow-2xs">
+              {editingFolderId === activeFolder.id ? (
+                <div className="flex items-center gap-1.5 flex-1">
+                  <input
+                    type="text"
+                    value={editingFolderName}
+                    onChange={(e) => setEditingFolderName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveEditFolder(activeFolder.id);
+                      if (e.key === "Escape") setEditingFolderId(null);
+                    }}
+                    className="flex-1 bg-white border border-black px-1.5 py-0.5 text-xs font-bold"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveEditFolder(activeFolder.id)}
+                    className="bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingFolderId(null)}
+                    className="text-black text-xs hover:text-red-500 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
               ) : (
                 <>
-                  <Square className="w-4 h-4 text-black stroke-[2.5]" />
-                  <span>All ({filtered.length})</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <FolderOpen className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span className="font-bold text-black uppercase truncate text-[11px]">
+                      Folder: {activeFolder.name}
+                    </span>
+                    <span className="text-[10px] font-mono text-black/60 shrink-0 font-bold">
+                      ({folderCounts.counts[activeFolder.id] || 0} {folderCounts.counts[activeFolder.id] === 1 ? "note" : "notes"})
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFolderId(activeFolder.id);
+                        setEditingFolderName(activeFolder.name);
+                        setEditingFolderColor(activeFolder.color || "indigo");
+                      }}
+                      className="p-1 hover:bg-black/10 rounded text-black/70 hover:text-black cursor-pointer"
+                      title="Rename folder"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFolder(activeFolder.id)}
+                      className="p-1 hover:bg-red-100 rounded text-red-600 cursor-pointer"
+                      title="Delete folder (notes stay in vault as unfiled)"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFolderId(null)}
+                      className="text-[10px] font-bold text-black/70 hover:text-black underline cursor-pointer ml-1"
+                    >
+                      Show All
+                    </button>
+                  </div>
                 </>
               )}
-            </button>
+            </div>
+          )}
+        </div>
+
+        {/* Selection Mode Action Bar */}
+        {isSelectionMode && (
+          <div className="bg-[#FFF4E0] border-3 border-black p-2.5 mb-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="flex items-center gap-1.5 text-xs font-black uppercase text-black hover:text-indigo-600 cursor-pointer"
+              >
+                <span className="w-4 h-4 border-2 border-black flex items-center justify-center bg-white">
+                  {allFilteredSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                </span>
+                <span>{allFilteredSelected ? "Deselect All" : "Select All"}</span>
+              </button>
+              <span className="text-[10px] font-bold text-black/60 bg-black/10 px-1.5 py-0.5 rounded">
+                {selectedIds.size} of {filtered.length}
+              </span>
+            </div>
 
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setIsBulkTagModalOpen(true)}
+                type="button"
+                onClick={() => setIsBulkFolderModalOpen(true)}
                 disabled={selectedIds.size === 0}
-                className="bg-[#FFF4E0] hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed text-black border-2 border-black px-2.5 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 cursor-pointer"
+                className="bg-white hover:bg-amber-100 disabled:opacity-40 text-black border-2 border-black px-2 py-1 text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:translate-x-0.5 active:translate-y-0.5"
+                title="Move selected notes to a study folder"
               >
-                <Tag className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>+ Tag ({selectedIds.size})</span>
+                <Folder className="w-3 h-3 text-amber-600" />
+                <span>Move</span>
               </button>
 
               <button
+                type="button"
+                onClick={() => setIsBulkTagModalOpen(true)}
+                disabled={selectedIds.size === 0}
+                className="bg-white hover:bg-pink-100 disabled:opacity-40 text-black border-2 border-black px-2 py-1 text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:translate-x-0.5 active:translate-y-0.5"
+                title="Tag selected notes"
+              >
+                <Tag className="w-3 h-3 text-pink-600" />
+                <span>Tag</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleBulkDeleteAction}
                 disabled={selectedIds.size === 0}
-                className="bg-[#FF6B6B] hover:bg-red-400 disabled:opacity-50 disabled:cursor-not-allowed text-black border-2 border-black px-2.5 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 cursor-pointer"
+                className="bg-[#FF6B6B] hover:bg-red-400 disabled:opacity-40 text-black border-2 border-black px-2 py-1 text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:translate-x-0.5 active:translate-y-0.5"
+                title="Delete selected notes"
               >
-                <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Del ({selectedIds.size})</span>
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Folder Modal */}
+        {isBulkFolderModalOpen && (
+          <div className="bg-amber-50 border-3 border-black p-3 mb-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] animate-fadeIn">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-black uppercase text-black flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-amber-600" />
+                <span>Move {selectedIds.size} note{selectedIds.size > 1 ? "s" : ""} to folder:</span>
+              </span>
+              <button
+                onClick={() => setIsBulkFolderModalOpen(false)}
+                className="text-black hover:text-red-500 cursor-pointer p-0.5"
+              >
+                <X className="w-3.5 h-3.5 stroke-[3]" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-1.5 mb-2.5 max-h-40 overflow-y-auto pr-1">
+              <button
+                type="button"
+                onClick={() => handleBulkMove(null)}
+                className="p-1.5 text-left bg-white hover:bg-neutral-100 border border-black rounded text-[11px] font-bold text-neutral-800 flex items-center justify-between cursor-pointer"
+              >
+                <span className="truncate">Unfiled (No folder)</span>
+              </button>
+              {currentFolders.map((f) => {
+                const col = FOLDER_COLOR_STYLES[f.color || "indigo"] || FOLDER_COLOR_STYLES.indigo;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => handleBulkMove(f.id)}
+                    className={`p-1.5 text-left border rounded text-[11px] font-bold flex items-center justify-between cursor-pointer ${col.pillBg} ${col.pillText} ${col.pillBorder} hover:border-black`}
+                  >
+                    <span className="truncate flex items-center gap-1">
+                      <Folder className="w-3 h-3 shrink-0" />
+                      <span>{f.name}</span>
+                    </span>
+                    <span className="text-[9px] font-mono text-black/50 ml-1">
+                      {folderCounts.counts[f.id] || 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick create and move */}
+            <div className="pt-2 border-t border-black/15 flex gap-1.5">
+              <input
+                type="text"
+                value={bulkNewFolderName}
+                onChange={(e) => setBulkNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && bulkNewFolderName.trim()) {
+                    const created = handleCreateFolder(bulkNewFolderName);
+                    if (created) {
+                      handleBulkMove(created.id);
+                      setBulkNewFolderName("");
+                    }
+                  }
+                }}
+                placeholder="Or create new folder and move..."
+                className="flex-1 bg-white border border-black px-2 py-1 text-xs font-bold text-black outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (bulkNewFolderName.trim()) {
+                    const created = handleCreateFolder(bulkNewFolderName);
+                    if (created) {
+                      handleBulkMove(created.id);
+                      setBulkNewFolderName("");
+                    }
+                  }
+                }}
+                disabled={!bulkNewFolderName.trim()}
+                className="bg-black hover:bg-indigo-600 disabled:opacity-50 text-white font-black text-[10px] uppercase px-2.5 py-1 border border-black cursor-pointer shadow-2xs"
+              >
+                Create & Move
               </button>
             </div>
           </div>
@@ -801,6 +1326,143 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                           </>
                         )}
                       </span>
+
+                      {/* Note Folder Pill & Dropdown Picker */}
+                      {(() => {
+                        const noteFolder = item.folderId
+                          ? currentFolders.find((f) => f.id === item.folderId)
+                          : null;
+                        const isPickerOpen = activeFolderPickerNoteId === item.id;
+                        const colStyle = noteFolder
+                          ? FOLDER_COLOR_STYLES[noteFolder.color || "indigo"] || FOLDER_COLOR_STYLES.indigo
+                          : null;
+
+                        return (
+                          <div className="relative folder-picker-container">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveFolderPickerNoteId(isPickerOpen ? null : item.id);
+                              }}
+                              className={`text-[10px] font-bold px-2 py-0.5 border rounded-full flex items-center gap-1 transition-all cursor-pointer ${
+                                noteFolder
+                                  ? `${colStyle?.pillBg} ${colStyle?.pillText} ${colStyle?.pillBorder} hover:border-black`
+                                  : "bg-stone-50 hover:bg-stone-100 text-stone-600 border-dashed border-stone-300 hover:border-stone-500"
+                              }`}
+                              title={
+                                noteFolder
+                                  ? `Folder: ${noteFolder.name} (Click to change)`
+                                  : "Assign to study folder"
+                              }
+                            >
+                              <Folder className="w-3 h-3 shrink-0" />
+                              <span className="truncate max-w-[90px]">
+                                {noteFolder ? noteFolder.name : "Folder"}
+                              </span>
+                              <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                            </button>
+
+                            {/* Dropdown Menu for Folder Assignment */}
+                            {isPickerOpen && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute left-0 top-full mt-1 w-52 bg-white border-2 border-black rounded shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-40 p-2 text-xs font-sans animate-fadeIn"
+                              >
+                                <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/15">
+                                  <span className="text-[10px] font-black uppercase text-black flex items-center gap-1">
+                                    <Folder className="w-3 h-3 text-amber-600" />
+                                    <span>Move to Folder</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveFolderPickerNoteId(null)}
+                                    className="text-black hover:text-red-500 cursor-pointer p-0.5"
+                                  >
+                                    <X className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                </div>
+
+                                <div className="space-y-1 max-h-44 overflow-y-auto pr-0.5">
+                                  {/* Unfiled option */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAssignNoteToFolder(item.id, null)}
+                                    className={`w-full text-left px-2 py-1 rounded text-[11px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                                      !item.folderId
+                                        ? "bg-black text-white"
+                                        : "hover:bg-black/5 text-black"
+                                    }`}
+                                  >
+                                    <span>None (Unfiled)</span>
+                                    {!item.folderId && <Check className="w-3 h-3 stroke-[3]" />}
+                                  </button>
+
+                                  {/* Folders list */}
+                                  {currentFolders.map((f) => {
+                                    const isCurrent = item.folderId === f.id;
+                                    const col =
+                                      FOLDER_COLOR_STYLES[f.color || "indigo"] ||
+                                      FOLDER_COLOR_STYLES.indigo;
+                                    return (
+                                      <button
+                                        key={f.id}
+                                        type="button"
+                                        onClick={() => handleAssignNoteToFolder(item.id, f.id)}
+                                        className={`w-full text-left px-2 py-1 rounded text-[11px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                                          isCurrent
+                                            ? `${col.activeBg}`
+                                            : "hover:bg-black/5 text-black"
+                                        }`}
+                                      >
+                                        <span className="flex items-center gap-1.5 truncate">
+                                          <span
+                                            className={`w-2 h-2 rounded-full shrink-0 ${
+                                              f.color === "emerald"
+                                                ? "bg-emerald-500"
+                                                : f.color === "amber"
+                                                ? "bg-amber-500"
+                                                : f.color === "rose"
+                                                ? "bg-rose-500"
+                                                : f.color === "purple"
+                                                ? "bg-purple-500"
+                                                : f.color === "blue"
+                                                ? "bg-blue-500"
+                                                : f.color === "stone"
+                                                ? "bg-stone-500"
+                                                : "bg-indigo-500"
+                                            }`}
+                                          />
+                                          <span className="truncate">{f.name}</span>
+                                        </span>
+                                        {isCurrent && <Check className="w-3 h-3 stroke-[3]" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Quick inline new folder in picker */}
+                                <div className="mt-2 pt-1.5 border-t border-black/15">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveFolderPickerNoteId(null);
+                                      setIsCreatingFolder(true);
+                                      document
+                                        .getElementById("history-folders-section")
+                                        ?.scrollIntoView({ behavior: "smooth" });
+                                    }}
+                                    className="w-full text-center text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 py-1 rounded border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    <Plus className="w-3 h-3 stroke-[3]" />
+                                    <span>Create New Folder</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <span className="text-[10px] font-black text-black flex items-center gap-1">
