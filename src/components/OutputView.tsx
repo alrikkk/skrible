@@ -36,6 +36,7 @@ import { analyzeNoteContentForTags } from "../utils/tagSuggester";
 import {
   Copy,
   Check,
+  FileCode,
   Volume2,
   VolumeX,
   Headphones,
@@ -413,17 +414,17 @@ export const OutputView: React.FC<OutputViewProps> = ({
     setIsSpeaking(true);
   };
 
-  // Copy entire generated markdown content to clipboard for use in other apps
-  const handleCopyToClipboard = async () => {
-    const textToCopy = displayMarkdown || activeMarkdown;
-    if (!textToCopy) return;
+  // Copy raw markdown text directly to user's clipboard
+  const handleCopyRawMarkdown = async () => {
+    const rawMarkdownToCopy = displayMarkdown || activeMarkdown || markdown;
+    if (!rawMarkdownToCopy) return;
 
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(textToCopy);
+        await navigator.clipboard.writeText(rawMarkdownToCopy);
       } else {
         const textarea = document.createElement("textarea");
-        textarea.value = textToCopy;
+        textarea.value = rawMarkdownToCopy;
         textarea.style.position = "fixed";
         textarea.style.left = "-9999px";
         textarea.style.top = "0";
@@ -435,14 +436,14 @@ export const OutputView: React.FC<OutputViewProps> = ({
       }
 
       setCopied(true);
-      setShareToast("Full markdown content copied to clipboard! Ready to paste into other apps.");
+      setShareToast("Raw markdown text copied directly to clipboard! Ready to paste into Obsidian, Notion, or Markdown editors.");
       setTimeout(() => setCopied(false), 2500);
       setTimeout(() => setShareToast(null), 4000);
     } catch (err) {
-      console.error("Failed to copy markdown to clipboard:", err);
+      console.error("Failed to copy raw markdown to clipboard:", err);
       try {
         const textarea = document.createElement("textarea");
-        textarea.value = textToCopy;
+        textarea.value = rawMarkdownToCopy;
         textarea.style.position = "fixed";
         textarea.style.left = "-9999px";
         textarea.style.top = "0";
@@ -452,7 +453,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
         document.execCommand("copy");
         document.body.removeChild(textarea);
         setCopied(true);
-        setShareToast("Full markdown content copied to clipboard! Ready to paste into other apps.");
+        setShareToast("Raw markdown text copied directly to clipboard!");
         setTimeout(() => setCopied(false), 2500);
         setTimeout(() => setShareToast(null), 4000);
       } catch (e) {
@@ -461,7 +462,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
     }
   };
 
-  const handleCopy = handleCopyToClipboard;
+  const handleCopyToClipboard = handleCopyRawMarkdown;
+  const handleCopy = handleCopyRawMarkdown;
 
   // Play Gemini TTS Audio
   const handleTTS = async () => {
@@ -1128,28 +1130,28 @@ export const OutputView: React.FC<OutputViewProps> = ({
             </button>
           )}
 
-          {/* Copy to Clipboard Button - Primary Action */}
+          {/* Copy Raw Markdown Button - Primary Action */}
           <button
-            id="copy-to-clipboard-button"
-            data-testid="copy-to-clipboard-button"
-            onClick={handleCopyToClipboard}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+            id="copy-raw-markdown-button"
+            data-testid="copy-raw-markdown"
+            onClick={handleCopyRawMarkdown}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
               copied
                 ? "bg-emerald-50 text-emerald-800 border border-emerald-300 ring-1 ring-emerald-400 font-bold"
-                : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-violet-400"
+                : "bg-white hover:bg-violet-50/60 text-black border border-black/15 hover:border-violet-400"
             }`}
-            title="Copy entire generated markdown content to clipboard for easy pasting into other applications"
-            aria-label="Copy to Clipboard"
+            title="Copy raw markdown text directly to clipboard (compatible with Obsidian, Notion, Bear, GitHub)"
+            aria-label="Copy Raw Markdown"
           >
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                <span className="text-emerald-800">copied to clipboard!</span>
+                <span className="text-emerald-800">raw markdown copied!</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-violet-600" />
-                <span>copy to clipboard</span>
+                <FileCode className="w-3.5 h-3.5 text-violet-600" />
+                <span>copy raw markdown</span>
               </>
             )}
           </button>
@@ -1774,24 +1776,25 @@ export const OutputView: React.FC<OutputViewProps> = ({
           <span className="text-black/50 hidden sm:inline">formatted & ready for Obsidian, Notion, or Docs</span>
         </div>
         <button
-          onClick={handleCopyToClipboard}
+          id="copy-raw-markdown-inline-button"
+          onClick={handleCopyRawMarkdown}
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer border ${
             copied
-              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-              : "bg-white hover:bg-black/5 text-black border border-black/15 hover:border-violet-400"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-bold"
+              : "bg-white hover:bg-violet-50 text-black border border-black/15 hover:border-violet-400"
           }`}
-          title="Copy entire markdown content to clipboard"
-          aria-label="Copy entire markdown to clipboard"
+          title="Copy raw markdown text directly to clipboard"
+          aria-label="Copy raw markdown to clipboard"
         >
           {copied ? (
             <>
               <Check className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
-              <span className="text-emerald-800 font-bold">copied!</span>
+              <span className="text-emerald-800 font-bold">raw markdown copied!</span>
             </>
           ) : (
             <>
-              <Copy className="w-3 h-3 text-violet-600" />
-              <span>copy to clipboard</span>
+              <FileCode className="w-3 h-3 text-violet-600" />
+              <span>copy raw markdown</span>
             </>
           )}
         </button>
