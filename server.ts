@@ -1050,7 +1050,7 @@ Make sure macroPercentages sum up to approximately 100%. Keep numeric values as 
   }
 });
 
-// Text-to-Speech Endpoint
+// Text-to-Speech Endpoint for Student Study Notes on the Go
 app.post("/api/tts", async (req, res) => {
   try {
     const auth = await verifyAuthAndRateLimit(req);
@@ -1058,50 +1058,78 @@ app.post("/api/tts", async (req, res) => {
       return res.status(auth.status || 401).json({ error: auth.error });
     }
 
-    const { text } = req.body;
-    if (!text) {
+    const { text, voiceName = "Zephyr", mode = "full" } = req.body;
+    if (!text || typeof text !== "string") {
       return res.status(400).json({ error: "No text provided for TTS." });
     }
 
     const ai = getGenAI();
-    // Clean markdown symbols for clearer speech
-    const cleanText = text.replace(/[#*`_~[\]]/g, "").slice(0, 1000);
+    // Clean and prepare markdown for natural, clear spoken narration
+    let cleanText = text
+      .replace(/^---\s*[\s\S]*?---\s*/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/`[^`]+`/g, "")
+      .replace(/^#{1,6}\s*(.+)$/gm, "$1. ")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/[|*~_`#]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    // Try up to 2 attempts for TTS in case of transient 503 errors
+    const maxChars = mode === "summary" ? 1500 : 3500;
+    cleanText = cleanText.slice(0, maxChars);
+
+    if (!cleanText) {
+      return res.status(400).json({ error: "Provided note contains no readable text." });
+    }
+
+    const allowedVoices = ["Zephyr", "Aoede", "Puck", "Fenrir", "Kore", "Charon"];
+    const selectedVoice = allowedVoices.includes(voiceName) ? voiceName : "Zephyr";
+
+    // Try gemini-3.8-flash-lite-tts first, with fallback
     let response: any;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const modelsToTry = ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview"];
+    let lastError: any = null;
+
+    for (const model of modelsToTry) {
       try {
         response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-tts-preview",
-          contents: [{ parts: [{ text: `Read with punchy clarity: ${cleanText}` }] }],
+          model,
+          contents: [{ parts: [{ text: `Read clearly and engagingly for a student studying: ${cleanText}` }] }],
           config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: "Zephyr" },
+                prebuiltVoiceConfig: { voiceName: selectedVoice },
               },
             },
           },
         });
-        break;
-      } catch (err: any) {
-        if (attempt === 0 && (err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE"))) {
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          continue;
+        if (response?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+          break;
         }
-        throw err;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[TTS] Failed with model ${model}:`, err?.message || err);
       }
     }
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    const inlineData = response?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    const base64Audio = inlineData?.data;
     if (!base64Audio) {
-      throw new Error("No audio data generated.");
+      throw lastError || new Error("No audio data generated.");
     }
 
     // Record usage
     await recordUsageLog(auth, "/api/tts");
 
-    res.json({ audio: base64Audio });
+    res.json({
+      audio: base64Audio,
+      mimeType: inlineData?.mimeType || "audio/wav",
+      voice: selectedVoice,
+      textLength: cleanText.length,
+      mode,
+    });
   } catch (error: any) {
     console.error("Error in /api/tts:", error);
     res.status(500).json({ error: error?.message || "Failed to generate speech." });

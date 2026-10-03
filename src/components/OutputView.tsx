@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Markdown from "react-markdown";
-import { motion, Variants } from "motion/react";
+import { motion, Variants, AnimatePresence } from "motion/react";
 import { ShoppingChecklist } from "./ShoppingChecklist";
 import { RecipeCostD3Chart } from "./RecipeCostD3Chart";
 import { RecipeNutritionCard } from "./RecipeNutritionCard";
@@ -20,6 +20,7 @@ import { NotionExportModal } from "./NotionExportModal";
 import { ShareModal } from "./ShareModal";
 import { ExecutiveSummaryCard } from "./ExecutiveSummaryCard";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { StudyAudioPlayer } from "./StudyAudioPlayer";
 import {
   isWebShareSupported,
   shareViaWebShare,
@@ -252,6 +253,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
   const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareToast, setShareToast] = useState<string | null>(null);
@@ -1223,19 +1225,19 @@ export const OutputView: React.FC<OutputViewProps> = ({
           
           {/* Audio TTS Button */}
           <button
-            onClick={handleTTS}
-            disabled={isLoadingAudio}
-            className="flex items-center gap-1.5 bg-white hover:bg-black/5 text-black border border-black/15 hover:border-purple-400 px-3 py-1.5 text-xs font-medium rounded-xl transition-all cursor-pointer"
-            title="Listen to content with high quality audio"
+            id="audio-tts-button"
+            data-testid="audio-tts-button"
+            onClick={() => setIsAudioPlayerOpen((prev) => !prev)}
+            className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              isAudioPlayerOpen
+                ? "bg-purple-100 text-purple-950 border-purple-400 font-bold"
+                : "bg-white hover:bg-purple-50 text-black border-black/15 hover:border-purple-400"
+            }`}
+            title="Listen to your untangled study notes with voice narration while on the go"
+            aria-label="Listen on the go"
           >
-            {isLoadingAudio ? (
-              <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent animate-spin rounded-full" />
-            ) : isPlayingAudio ? (
-              <VolumeX className="w-3.5 h-3.5 text-purple-600" />
-            ) : (
-              <Volume2 className="w-3.5 h-3.5 text-purple-600" />
-            )}
-            <span>{isPlayingAudio ? "stop audio" : "listen"}</span>
+            <Headphones className="w-3.5 h-3.5 text-purple-600 stroke-[2.5]" />
+            <span>{isAudioPlayerOpen ? "audio companion open" : "listen on the go"}</span>
           </button>
 
           {/* Generate Shareable Link Button */}
@@ -1485,6 +1487,19 @@ export const OutputView: React.FC<OutputViewProps> = ({
           </div>
         </motion.div>
       )}
+
+      {/* STUDY AUDIO COMPANION (TEXT-TO-SPEECH FOR ON THE GO STUDY) */}
+      <AnimatePresence>
+        {isAudioPlayerOpen && (
+          <StudyAudioPlayer
+            markdown={displayMarkdown || activeMarkdown}
+            topicTitle={recipeTitle || (routeDetected === "chef" ? "Dorm Recipe" : "Untangled Study Note")}
+            isOpen={isAudioPlayerOpen}
+            onClose={() => setIsAudioPlayerOpen(false)}
+            getAuthHeaders={getAuthHeaders}
+          />
+        )}
+      </AnimatePresence>
 
       {/* EXECUTIVE SUMMARY CARD */}
       {(!isSummaryDismissed && (summaryData || isLoadingSummary || summaryError)) && (
