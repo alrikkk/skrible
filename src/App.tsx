@@ -972,9 +972,9 @@ export default function App() {
 
       {/* Footer Notice */}
       {!isReadabilityMode && (
-        <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-2">
-          <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none">
-            This is not Ai Slop
+        <footer className="w-full py-8 text-center mt-12 border-t border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-1.5">
+          <p className="text-xs text-black/40 dark:text-white/40">
+            skrible · student note & dorm meal engine
           </p>
         </footer>
       )}

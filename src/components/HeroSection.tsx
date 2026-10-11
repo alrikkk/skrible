@@ -38,7 +38,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       
       {/* Background Dotted Grid Pattern */}
       <div 
-        className="absolute inset-0 opacity-40 pointer-events-none hero-dots"
+        className="absolute inset-0 opacity-15 pointer-events-none hero-dots"
         style={{
           backgroundImage: "radial-gradient(#000000 0.75px, transparent 0.75px)",
           backgroundSize: "20px 20px"
@@ -132,25 +132,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
         {/* Hero Section Copy */}
         <div className="max-w-2xl mb-10 pt-2">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold mb-4">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>your messy-life co-pilot</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-black lowercase leading-[1.1] mb-4">
-            untangle your messy student life.
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-black leading-[1.1] mb-4">
+            Untangle lectures, notes, and dorm meals.
           </h1>
 
-          <p className="text-base sm:text-lg text-black/70 leading-relaxed mb-6">
-            turn chaotic 2-hour lecture audio, scribbled notes, and random dorm fridge leftovers into clean summaries, study decks, and $5 survival recipes.
+          <p className="text-base sm:text-lg text-black/70 leading-relaxed mb-6 font-normal">
+            Turn long lecture recordings, whiteboard notes, and leftover groceries into structured study guides, flashcard decks, and budget-friendly recipes.
           </p>
 
           <button
             onClick={onStart}
-            className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 bg-black hover:bg-indigo-600 text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer group"
+            className="inline-flex items-center justify-center gap-2.5 px-6 py-3 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-lg transition-all shadow-sm cursor-pointer group"
           >
-            <span>Lets Start</span>
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
+            <span>Get Started</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
@@ -164,8 +159,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="absolute inset-0 opacity-15 pointer-events-none bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:4rem_4rem]" />
 
           {/* Grid Hint Bar */}
-          <div className="flex items-center justify-end text-xs font-mono text-black/40 select-none mb-4 md:mb-0 relative z-20 pointer-events-none">
-            <span className="hidden lg:inline text-black/30">[click & drag cards or click "try scenario" ↘]</span>
+          <div className="flex items-center justify-end text-xs text-black/40 select-none mb-4 md:mb-0 relative z-20 pointer-events-none">
+            <span className="hidden lg:inline text-black/35 font-normal">Interactive preview · Click and drag to arrange cards</span>
           </div>
 
           {/* CARDS CONTAINER */}
@@ -176,9 +171,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
-              whileHover={{ scale: 1.04, zIndex: 40 }}
-              whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:top-8 md:left-6 w-full md:w-60 bg-black text-white p-3.5 rounded-2xl shadow-md md:shadow-xl cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none transform-gpu will-change-transform"
+              whileHover={{ scale: 1.02, zIndex: 40 }}
+              whileDrag={{ scale: 1.05, zIndex: 50 }}
+              className="relative md:absolute md:top-8 md:left-6 w-full md:w-60 bg-black text-white p-3.5 rounded-xl shadow-md cursor-grab active:cursor-grabbing select-none touch-none transform-gpu will-change-transform border border-white/10"
             >
               {/* Phone Speaker & Camera notch */}
               <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-3" />
@@ -231,17 +226,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
-              whileHover={{ scale: 1.05, zIndex: 45 }}
-              whileDrag={{ scale: 1.1, zIndex: 50 }}
-              className="relative md:absolute md:top-6 md:left-1/2 md:-translate-x-1/2 w-full md:w-52 bg-white p-2.5 pt-4 rounded-sm shadow-xl border border-black/15 cursor-grab active:cursor-grabbing rotate-0 md:-rotate-2 select-none touch-none overflow-visible z-30"
+              whileHover={{ scale: 1.02, zIndex: 45 }}
+              whileDrag={{ scale: 1.05, zIndex: 50 }}
+              className="relative md:absolute md:top-6 md:left-1/2 md:-translate-x-1/2 w-full md:w-52 bg-white p-2.5 pt-3 rounded-xl shadow-md border border-black/10 cursor-grab active:cursor-grabbing select-none touch-none overflow-hidden z-30"
             >
-              {/* Realistic Scotch tape taped on top of the card */}
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-5 bg-white/40 border-x border-y border-white/60 shadow-[0_2px_5px_rgba(0,0,0,0.15)] backdrop-blur-[2px] rotate-[-1deg] z-40 pointer-events-none flex items-center justify-center [clip-path:polygon(0_0,95%_2%,100%_100%,3%_98%)]">
-                <div className="w-full h-[1px] bg-white/50" />
-              </div>
-
               {/* Photo Frame Container */}
-              <div className="relative w-full aspect-[4/3] bg-stone-900 rounded-xs overflow-hidden border border-black/20 shadow-inner group">
+              <div className="relative w-full aspect-[4/3] bg-stone-900 rounded-lg overflow-hidden border border-black/10 shadow-inner group">
                 {/* Static Mascot Image Asset */}
                 <img 
                   src="/assets/images.jpeg" 
@@ -262,22 +252,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
             </motion.div>
 
-            {/* OBJECT 2: Realistic Yellow Sticky Note Sticker (Zone 3: Top Right) */}
+            {/* OBJECT 2: Clean Yellow Study Note (Zone 3: Top Right) */}
             <motion.div 
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
-              whileHover={{ scale: 1.04, zIndex: 40 }}
-              whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:top-8 md:right-6 w-full md:w-64 bg-gradient-to-br from-[#FEF9C3] via-[#FFF08A] to-[#FDE047] text-black p-4 pt-5 rounded-b-xs rounded-t-sm shadow-[4px_10px_20px_-3px_rgba(0,0,0,0.15)] border border-yellow-300/90 cursor-grab active:cursor-grabbing rotate-0 md:rotate-4 overflow-hidden select-none touch-none"
+              whileHover={{ scale: 1.02, zIndex: 40 }}
+              whileDrag={{ scale: 1.05, zIndex: 50 }}
+              className="relative md:absolute md:top-8 md:right-6 w-full md:w-64 bg-[#FEF9C3] text-black p-4 rounded-xl shadow-md border border-yellow-300/80 cursor-grab active:cursor-grabbing select-none touch-none"
             >
-              {/* Translucent adhesive tape on top */}
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-5 bg-yellow-400/40 border-x border-y border-yellow-500/50 backdrop-blur-[1px] rotate-1 shadow-2xs pointer-events-none" />
-
-              {/* Sticky note dog-ear corner fold */}
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-yellow-600/20 blur-[1px] [clip-path:polygon(0_100%,100%_0,100%_100%)] pointer-events-none" />
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#facc15] shadow-[-1px_-1px_3px_rgba(0,0,0,0.2)] [clip-path:polygon(0_100%,100%_0,100%_100%)] pointer-events-none" />
-
               {/* Sticky note header */}
               <div className="flex items-center justify-between border-b border-yellow-600/20 pb-1.5 mb-2.5">
                 <span className="text-[10px] font-mono font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
@@ -319,9 +302,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
-              whileHover={{ scale: 1.04, zIndex: 40 }}
-              whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:bottom-12 md:left-8 w-full md:w-56 bg-white text-black p-3.5 rounded-xl md:rounded-sm shadow-md border border-dashed border-gray-300 cursor-grab active:cursor-grabbing rotate-0 md:-rotate-3 select-none touch-none"
+              whileHover={{ scale: 1.02, zIndex: 40 }}
+              whileDrag={{ scale: 1.05, zIndex: 50 }}
+              className="relative md:absolute md:bottom-12 md:left-8 w-full md:w-56 bg-white text-black p-3.5 rounded-xl shadow-md border border-neutral-200 cursor-grab active:cursor-grabbing select-none touch-none"
             >
               <div className="text-center border-b border-dashed border-gray-300 pb-2 mb-2">
                 <p className="text-[10px] font-mono font-bold text-gray-700 tracking-widest uppercase">
@@ -371,24 +354,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               )}
             </motion.div>
 
-            {/* OBJECT 4: Fridge Sticky Note Polaroid (Zone 5: Bottom Right) */}
+            {/* OBJECT 4: Fridge Snap (Zone 5: Bottom Right) */}
             <motion.div 
               drag
               dragConstraints={containerRef}
               dragElastic={0.05}
-              whileHover={{ scale: 1.04, zIndex: 40 }}
-              whileDrag={{ scale: 1.08, zIndex: 50 }}
-              className="relative md:absolute md:bottom-12 md:right-8 w-full md:w-56 bg-white p-2.5 rounded-xl md:rounded shadow-md border border-black/10 cursor-grab active:cursor-grabbing rotate-0 md:rotate-4 select-none touch-none"
+              whileHover={{ scale: 1.02, zIndex: 40 }}
+              whileDrag={{ scale: 1.05, zIndex: 50 }}
+              className="relative md:absolute md:bottom-12 md:right-8 w-full md:w-56 bg-white p-2.5 rounded-xl shadow-md border border-black/10 cursor-grab active:cursor-grabbing select-none touch-none"
             >
               {/* Polaroid photo placeholder */}
-              <div className="w-full h-24 bg-gradient-to-br from-amber-100 to-amber-200 rounded p-2 flex flex-col justify-between border border-amber-300/50">
+              <div className="w-full h-24 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-2 flex flex-col justify-between border border-amber-200/50">
                 <div className="flex items-center justify-between text-[10px] font-semibold text-amber-900">
                   <span className="flex items-center gap-1">
                     <Utensils className="w-3 h-3 text-orange-600" /> FRIDGE SNAP
                   </span>
                   <span>11:45 PM</span>
                 </div>
-                <p className="text-xs font-bold text-amber-950 bg-white/80 p-1.5 rounded backdrop-blur-xs">
+                <p className="text-xs font-bold text-amber-950 bg-white/90 p-1.5 rounded">
                   "half onion + 2 eggs + Sriracha?"
                 </p>
               </div>
