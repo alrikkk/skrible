@@ -263,6 +263,25 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
+  const [isAudioSpeaking, setIsAudioSpeaking] = useState(false);
+  const [audioPlaybackSpeed, setAudioPlaybackSpeed] = useState<number>(1.25);
+  const [autoPlayAudio, setAutoPlayAudio] = useState(false);
+
+  const handleToggleListen = () => {
+    if (!isAudioPlayerOpen) {
+      setIsAudioPlayerOpen(true);
+      setAutoPlayAudio(true);
+    } else {
+      if (isAudioSpeaking) {
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+        }
+        setIsAudioSpeaking(false);
+      } else {
+        setAutoPlayAudio(true);
+      }
+    }
+  };
   const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareToast, setShareToast] = useState<string | null>(null);
@@ -1435,16 +1454,32 @@ export const OutputView: React.FC<OutputViewProps> = ({
               <button
                 type="button"
                 id="readability-audio-button"
-                onClick={() => setIsAudioPlayerOpen((prev) => !prev)}
+                data-testid="readability-listen-button"
+                onClick={handleToggleListen}
                 className={`p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isAudioPlayerOpen
-                    ? "bg-purple-600 text-white shadow-2xs"
+                  isAudioSpeaking
+                    ? "bg-purple-600 text-white shadow-2xs font-bold"
+                    : isAudioPlayerOpen
+                    ? "bg-purple-100 text-purple-950 border border-purple-300 font-bold"
                     : "bg-purple-50 text-purple-900 hover:bg-purple-100 border border-purple-300"
                 }`}
-                title="Listen to note audio narration"
+                title="Listen to note audio narration with Web Speech API"
               >
-                <Headphones className="w-3.5 h-3.5 text-purple-600" />
-                <span className="hidden md:inline">{isAudioPlayerOpen ? "Audio open" : "Listen"}</span>
+                {isAudioSpeaking ? (
+                  <>
+                    <span className="flex items-center gap-0.5">
+                      <span className="w-0.5 h-2.5 bg-white animate-pulse rounded-full" />
+                      <span className="w-0.5 h-3.5 bg-white animate-bounce rounded-full" />
+                      <span className="w-0.5 h-1.5 bg-white animate-pulse rounded-full" />
+                    </span>
+                    <span className="hidden md:inline">Listening ({audioPlaybackSpeed}x)</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5 text-purple-600" />
+                    <span className="hidden md:inline">Listen</span>
+                  </>
+                )}
               </button>
 
               <button
@@ -1679,21 +1714,36 @@ export const OutputView: React.FC<OutputViewProps> = ({
             )}
           </button>
           
-          {/* Audio TTS Button */}
+          {/* Web Speech API Listen Button */}
           <button
             id="audio-tts-button"
-            data-testid="audio-tts-button"
-            onClick={() => setIsAudioPlayerOpen((prev) => !prev)}
-            className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
-              isAudioPlayerOpen
+            data-testid="listen-button"
+            onClick={handleToggleListen}
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] ${
+              isAudioSpeaking
+                ? "bg-purple-600 text-white border-purple-600 shadow-2xs font-bold"
+                : isAudioPlayerOpen
                 ? "bg-purple-100 text-purple-950 border-purple-400 font-bold"
                 : "bg-white hover:bg-purple-50 text-black border-black/15 hover:border-purple-400"
             }`}
-            title="Listen to your untangled study notes with voice narration while on the go"
-            aria-label="Listen on the go"
+            title="Listen to generated notes read aloud using Web Speech API for studying on the go"
+            aria-label="Listen"
           >
-            <Headphones className="w-3.5 h-3.5 text-purple-600 stroke-[2.5]" />
-            <span>{isAudioPlayerOpen ? "audio companion open" : "listen on the go"}</span>
+            {isAudioSpeaking ? (
+              <>
+                <span className="flex items-center gap-0.5">
+                  <span className="w-0.5 h-3 bg-white animate-pulse rounded-full" />
+                  <span className="w-0.5 h-4 bg-white animate-bounce rounded-full" />
+                  <span className="w-0.5 h-2 bg-white animate-pulse rounded-full" />
+                </span>
+                <span>Listening ({audioPlaybackSpeed}x)</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-purple-600 stroke-[2.5]" />
+                <span>Listen</span>
+              </>
+            )}
           </button>
 
           {/* Generate Shareable Link Button */}
@@ -1952,7 +2002,16 @@ export const OutputView: React.FC<OutputViewProps> = ({
             markdown={displayMarkdown || activeMarkdown}
             topicTitle={recipeTitle || (routeDetected === "chef" ? "Dorm Recipe" : "Untangled Study Note")}
             isOpen={isAudioPlayerOpen}
-            onClose={() => setIsAudioPlayerOpen(false)}
+            onClose={() => {
+              setIsAudioPlayerOpen(false);
+              setIsAudioSpeaking(false);
+              setAutoPlayAudio(false);
+            }}
+            autoPlay={autoPlayAudio}
+            onPlaybackChange={(playing, speed) => {
+              setIsAudioSpeaking(playing);
+              setAudioPlaybackSpeed(speed);
+            }}
             getAuthHeaders={getAuthHeaders}
           />
         )}
