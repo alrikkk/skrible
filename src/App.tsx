@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { HeroSection } from "./components/HeroSection";
 import { PresetBar } from "./components/PresetBar";
 import { InputPanel } from "./components/InputPanel";
@@ -18,7 +18,21 @@ import { supabase, getAuthHeaders } from "./lib/supabaseClient";
 export default function App() {
   const { currentUser, session, signOut: authSignOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<"home" | "login" | "workspace">("home");
-  const [showOpeningAnimation, setShowOpeningAnimation] = useState<boolean>(true);
+  const [showOpeningAnimation, setShowOpeningAnimation] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem("skrible_intro_seen") !== "true";
+    } catch {
+      return true;
+    }
+  });
+
+  const handleCompleteIntro = useCallback(() => {
+    setShowOpeningAnimation(false);
+    try {
+      sessionStorage.setItem("skrible_intro_seen", "true");
+    } catch {}
+  }, []);
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
   const [showClearAllModal, setShowClearAllModal] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -669,7 +683,7 @@ export default function App() {
       {/* Opening Paint-Over Animation */}
       {showOpeningAnimation && (
         <OpeningPaintAnimation
-          onComplete={() => setShowOpeningAnimation(false)}
+          onComplete={handleCompleteIntro}
           isDark={isDarkMode}
         />
       )}

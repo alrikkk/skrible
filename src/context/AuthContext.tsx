@@ -50,51 +50,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
     let subscription: any = null;
 
-    initSupabase().then(({ client, configured: isConfig }) => {
-      if (!mounted) return;
-      setConfigured(isConfig);
-
-      if (isConfig) {
-        // Get initial session
-        client.auth.getSession().then(({ data: { session: initSession } }) => {
-          if (!mounted) return;
-          setSession(initSession);
-          if (initSession?.user) {
-            const profile = mapSupabaseUser(initSession.user);
-            setCurrentUser(profile);
-            try {
-              localStorage.setItem("skrible_user", JSON.stringify(profile));
-            } catch {}
-          }
-          setLoading(false);
-        });
-
-        // Listen for auth state changes across window refreshes & tab events
-        const { data } = client.auth.onAuthStateChange((_event, currentSession) => {
-          if (!mounted) return;
-          setSession(currentSession);
-          if (currentSession?.user) {
-            const profile = mapSupabaseUser(currentSession.user);
-            setCurrentUser(profile);
-            try {
-              localStorage.setItem("skrible_user", JSON.stringify(profile));
-            } catch {}
-          } else if (_event === "SIGNED_OUT") {
-            setCurrentUser(null);
-            try {
-              localStorage.removeItem("skrible_user");
-            } catch {}
-          }
-          setLoading(false);
-        });
-        subscription = data.subscription;
-      } else {
+    // Safety timeout: Never keep the user waiting on the loading screen more than 700ms
+    const safetyTimeout = setTimeout(() => {
+      if (mounted) {
         setLoading(false);
       }
-    });
+    }, 700);
+
+    initSupabase()
+      .then(({ client, configured: isConfig }) => {
+        if (!mounted) return;
+        setConfigured(isConfig);
+
+        if (isConfig) {
+          // Get initial session
+          client.auth
+            .getSession()
+            .then(({ data: { session: initSession } }) => {
+              if (!mounted) return;
+              setSession(initSession);
+              if (initSession?.user) {
+                const profile = mapSupabaseUser(initSession.user);
+                setCurrentUser(profile);
+                try {
+                  localStorage.setItem("skrible_user", JSON.stringify(profile));
+                } catch {}
+              }
+              setLoading(false);
+            })
+            .catch((err) => {
+              console.warn("Session retrieval failed:", err);
+              if (mounted) setLoading(false);
+            });
+
+          // Listen for auth state changes across window refreshes & tab events
+          const { data } = client.auth.onAuthStateChange((_event, currentSession) => {
+            if (!mounted) return;
+            setSession(currentSession);
+            if (currentSession?.user) {
+              const profile = mapSupabaseUser(currentSession.user);
+              setCurrentUser(profile);
+              try {
+                localStorage.setItem("skrible_user", JSON.stringify(profile));
+              } catch {}
+            } else if (_event === "SIGNED_OUT") {
+              setCurrentUser(null);
+              try {
+                localStorage.removeItem("skrible_user");
+              } catch {}
+            }
+            setLoading(false);
+          });
+          subscription = data.subscription;
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Supabase init error:", err);
+        if (mounted) setLoading(false);
+      });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       if (subscription) {
         subscription.unsubscribe();
       }

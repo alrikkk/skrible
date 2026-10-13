@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Paintbrush } from "lucide-react";
 
@@ -23,36 +23,46 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
   const accentPathRef = useRef<SVGPathElement>(null);
   const penGroupRef = useRef<SVGGElement>(null);
 
-  // Background and paint palettes
-  const palette = isDark
-    ? {
-        bg: "#0F0F12",
-        paintYellow: "#FFE600",
-        paintPink: "#FF90E8",
-        paintCyan: "#00F5FF",
-        paperCard: "#18181F",
-        ink: "#FFFFFF",
-        inkSecondary: "rgba(255, 255, 255, 0.7)",
-        appBg: "#1a1a1a",
-      }
-    : {
-        bg: "#FFF7EB",
-        paintYellow: "#FFE600",
-        paintPink: "#FF90E8",
-        paintCyan: "#00F5FF",
-        paperCard: "#FFFFFF",
-        ink: "#000000",
-        inkSecondary: "rgba(0, 0, 0, 0.7)",
-        appBg: "#FAF8F5",
-      };
+  // Keep latest onComplete reference without restarting timers
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
-  // Skip handler with smooth exit
+  // Background and paint palettes (memoized to prevent re-triggering effects)
+  const palette = useMemo(
+    () =>
+      isDark
+        ? {
+            bg: "#0F0F12",
+            paintYellow: "#FFE600",
+            paintPink: "#FF90E8",
+            paintCyan: "#00F5FF",
+            paperCard: "#18181F",
+            ink: "#FFFFFF",
+            inkSecondary: "rgba(255, 255, 255, 0.7)",
+            appBg: "#1a1a1a",
+          }
+        : {
+            bg: "#FFF7EB",
+            paintYellow: "#FFE600",
+            paintPink: "#FF90E8",
+            paintCyan: "#00F5FF",
+            paperCard: "#FFFFFF",
+            ink: "#000000",
+            inkSecondary: "rgba(0, 0, 0, 0.7)",
+            appBg: "#FAF8F5",
+          },
+    [isDark]
+  );
+
+  // Safe skip handler with immediate exit
   const handleSkip = () => {
     if (isSkipping) return;
     setIsSkipping(true);
     setTimeout(() => {
-      onComplete();
-    }, 220);
+      onCompleteRef.current?.();
+    }, 80);
   };
 
   // Keyboard shortcut listener (Escape, Space, Enter)
@@ -67,29 +77,40 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Coordinated timeline for perfectly seamless flow
+  // Coordinated timeline for perfectly seamless flow (runs once on mount, never resets)
   useEffect(() => {
-    // 0ms - 450ms: Paint ribbons glide smoothly across screen
-    // 450ms - 1950ms: Showcase brand logo, live drawing pencil, sparkles & text
-    // 1950ms - 2650ms: Smooth organic paint wave sweeps across and seamlessly hands over to app
+    let completed = false;
+    const triggerComplete = () => {
+      if (!completed) {
+        completed = true;
+        onCompleteRef.current?.();
+      }
+    };
+
     const showcaseTimer = setTimeout(() => {
       setPhase("showcase");
-    }, 450);
+    }, 400);
 
     const wipeTimer = setTimeout(() => {
       setPhase("wipe-out");
-    }, 1950);
+    }, 1850);
 
     const completeTimer = setTimeout(() => {
-      onComplete();
-    }, 2650);
+      triggerComplete();
+    }, 2500);
+
+    // Guaranteed hard deadline: never stay open past 2900ms under any circumstance
+    const safetyDeadline = setTimeout(() => {
+      triggerComplete();
+    }, 2900);
 
     return () => {
       clearTimeout(showcaseTimer);
       clearTimeout(wipeTimer);
       clearTimeout(completeTimer);
+      clearTimeout(safetyDeadline);
     };
-  }, [onComplete]);
+  }, []);
 
   // LIVE DRAWING LOGO ANIMATION (Pen Nib Following Path)
   useEffect(() => {
@@ -177,7 +198,17 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
     };
 
     animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
+    return () => {
+      cancelAnimationFrame(animId);
+      try {
+        if (mainPath) {
+          mainPath.style.strokeDashoffset = "0px";
+        }
+        if (accentPath) {
+          accentPath.style.strokeDashoffset = "0px";
+        }
+      } catch {}
+    };
   }, []);
 
   // Dynamic canvas paint splatter particles (lightweight & 60fps locked)
@@ -285,7 +316,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
       aria-modal="true"
       aria-label="Opening Paint Animation"
       onClick={handleSkip}
-      className={`fixed inset-0 z-99999 flex items-center justify-center overflow-hidden cursor-pointer select-none transition-opacity duration-200 ${
+      className={`fixed inset-0 z-[99999] flex items-center justify-center overflow-hidden cursor-pointer select-none transition-opacity duration-200 ${
         isSkipping ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
       style={{
@@ -465,7 +496,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                     opacity: isLogoDrawn ? 1 : 0,
                   }}
                   transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.05 }}
-                  style={{ originX: "230px", originY: "390px" }}
+                  style={{ transformOrigin: "230px 390px" }}
                 />
                 {/* Dot 2 */}
                 <motion.circle
@@ -481,7 +512,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                     opacity: isLogoDrawn ? 1 : 0,
                   }}
                   transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.12 }}
-                  style={{ originX: "180px", originY: "430px" }}
+                  style={{ transformOrigin: "180px 430px" }}
                 />
                 {/* Dot 3 */}
                 <motion.circle
@@ -497,7 +528,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                     opacity: isLogoDrawn ? 1 : 0,
                   }}
                   transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.2 }}
-                  style={{ originX: "135px", originY: "460px" }}
+                  style={{ transformOrigin: "135px 460px" }}
                 />
               </g>
 
@@ -548,7 +579,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       initial={{ scale: 0, rotate: 0 }}
                       animate={{ scale: [0, 1.4, 1], rotate: 45 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14 }}
-                      style={{ originX: "590px", originY: "120px" }}
+                      style={{ transformOrigin: "590px 120px" }}
                     />
 
                     {/* Sparkle 2: Top-Left Hot Pink ✦ */}
@@ -561,7 +592,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       initial={{ scale: 0, rotate: 0 }}
                       animate={{ scale: [0, 1.35, 1], rotate: -35 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14, delay: 0.08 }}
-                      style={{ originX: "150px", originY: "95px" }}
+                      style={{ transformOrigin: "150px 95px" }}
                     />
 
                     {/* Sparkle 3: Middle-Right Electric Cyan ✦ */}
@@ -574,7 +605,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       initial={{ scale: 0, rotate: 0 }}
                       animate={{ scale: [0, 1.3, 1], rotate: 60 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14, delay: 0.14 }}
-                      style={{ originX: "610px", originY: "290px" }}
+                      style={{ transformOrigin: "610px 290px" }}
                     />
 
                     {/* Sparkle 4: Apex Mini Star ★ */}
@@ -587,7 +618,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       initial={{ scale: 0 }}
                       animate={{ scale: [0, 1.4, 1] }}
                       transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.18 }}
-                      style={{ originX: "370px", originY: "30px" }}
+                      style={{ transformOrigin: "370px 30px" }}
                     />
 
                     {/* Sparkle 5: Bottom Thought Trail Sparkle ✦ */}
@@ -600,7 +631,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       initial={{ scale: 0 }}
                       animate={{ scale: [0, 1.25, 1], rotate: 20 }}
                       transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.22 }}
-                      style={{ originX: "285px", originY: "465px" }}
+                      style={{ transformOrigin: "285px 465px" }}
                     />
                   </g>
                 )}
@@ -626,7 +657,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
               scaleX: 1,
               transition: { duration: 0.5, delay: 0.58, ease: easeOutQuart },
             }}
-            style={{ originX: 0 }}
+            style={{ transformOrigin: "left center" }}
             className="absolute left-[-4%] right-[-4%] bottom-[12%] h-[46%] -rotate-1 rounded-sm -z-10 bg-gradient-to-r from-[#FFE600] via-[#FF90E8] to-[#00F5FF] border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] overflow-hidden"
           >
             {/* Shimmer glossy light pass across highlighter */}

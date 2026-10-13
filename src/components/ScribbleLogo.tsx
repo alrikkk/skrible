@@ -26,7 +26,8 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
     if (!mainPath) return;
 
     try {
-      const length = Math.ceil(mainPath.getTotalLength()) + 20;
+      const measured = Math.ceil(mainPath.getTotalLength());
+      const length = measured > 100 ? measured + 20 : 5200;
       mainPath.style.strokeDasharray = `${length}px`;
       mainPath.style.strokeDashoffset = `${length}px`;
 
@@ -47,14 +48,30 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
 
       const timer = setTimeout(() => {
         setIsDrawn(true);
+        if (mainPath) {
+          mainPath.style.strokeDasharray = "none";
+          mainPath.style.strokeDashoffset = "0px";
+        }
+        if (accentPath) {
+          accentPath.style.strokeDasharray = "none";
+          accentPath.style.strokeDashoffset = "0px";
+        }
       }, 1450);
 
       return () => {
         cancelAnimationFrame(frame);
         clearTimeout(timer);
+        if (mainPath) {
+          mainPath.style.strokeDasharray = "none";
+          mainPath.style.strokeDashoffset = "0px";
+        }
       };
     } catch {
       setIsDrawn(true);
+      if (mainPath) {
+        mainPath.style.strokeDasharray = "none";
+        mainPath.style.strokeDashoffset = "0px";
+      }
     }
   }, []);
 
@@ -193,7 +210,7 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
                 damping: 15,
                 delay: isDrawn ? 0 : 0.6,
               }}
-              style={{ originX: "580px", originY: "120px" }}
+              style={{ transformOrigin: "580px 120px" }}
             />
 
             {/* Top-Left Mini Sparkle ✦ */}
@@ -215,7 +232,7 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
                 damping: 15,
                 delay: isDrawn ? 0 : 0.75,
               }}
-              style={{ originX: "170px", originY: "100px" }}
+              style={{ transformOrigin: "170px 100px" }}
             />
           </g>
         )}

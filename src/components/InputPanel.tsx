@@ -68,31 +68,164 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   const chefImageInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
 
-  // File drop handling
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFiles = e.target.files;
-    if (!uploadedFiles) return;
+  // Drag-and-drop state & counters
+  const [isDraggingNotes, setIsDraggingNotes] = useState(false);
+  const [isDraggingChef, setIsDraggingChef] = useState(false);
+  const notesDragCounter = useRef(0);
+  const chefDragCounter = useRef(0);
 
-    Array.from(uploadedFiles).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setFiles((prev) => [
-          ...prev,
-          {
+  // Unified file processor for inputs and drag-and-drop
+  const processFiles = (fileList: FileList | File[], targetDestination?: "notes" | "chef") => {
+    const incomingFiles = Array.from(fileList);
+    if (incomingFiles.length === 0) return;
+
+    if (targetDestination === "notes") {
+      setNoteTab("photo");
+      if (route === "auto") setRoute("notes");
+    } else if (targetDestination === "chef") {
+      setChefTab("photo");
+      if (route === "auto") setRoute("chef");
+    }
+
+    incomingFiles.forEach((file) => {
+      // If it's a text/markdown file, append directly to prompt text
+      if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target?.result as string;
+          if (text) {
+            setPromptText(promptText ? `${promptText}\n\n${text}` : text);
+          }
+        };
+        reader.readAsText(file);
+        return;
+      }
+
+      // If it's an audio file, attach as audio
+      if (file.type.startsWith("audio/")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          setAudioAttachment({
             name: file.name,
-            mimeType: file.type || "image/png",
+            mimeType: file.type || "audio/mp3",
             data: base64,
-            previewUrl: base64,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
+          });
+        };
+        reader.readAsDataURL(file);
+        if (targetDestination === "notes") setNoteTab("audio");
+        return;
+      }
+
+      // Images (whiteboard photos, receipt photos, fridge photos, screenshots)
+      if (
+        file.type.startsWith("image/") ||
+        /\.(png|jpe?g|webp|gif|bmp|svg|avif|heic)$/i.test(file.name)
+      ) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          setFiles((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              mimeType: file.type || "image/png",
+              data: base64,
+              previewUrl: base64,
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
+      }
     });
+  };
+
+  // File input change handlers
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      processFiles(e.target.files);
+      e.target.value = "";
+    }
   };
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setFiles([]);
+  };
+
+  // Drag-and-drop event handlers for Note Cram column
+  const handleNotesDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    notesDragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingNotes(true);
+    }
+  };
+
+  const handleNotesDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleNotesDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    notesDragCounter.current -= 1;
+    if (notesDragCounter.current <= 0) {
+      notesDragCounter.current = 0;
+      setIsDraggingNotes(false);
+    }
+  };
+
+  const handleNotesDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    notesDragCounter.current = 0;
+    setIsDraggingNotes(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files, "notes");
+    }
+  };
+
+  // Drag-and-drop event handlers for The Cook column
+  const handleChefDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chefDragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingChef(true);
+    }
+  };
+
+  const handleChefDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleChefDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chefDragCounter.current -= 1;
+    if (chefDragCounter.current <= 0) {
+      chefDragCounter.current = 0;
+      setIsDraggingChef(false);
+    }
+  };
+
+  const handleChefDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chefDragCounter.current = 0;
+    setIsDraggingChef(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files, "chef");
+    }
   };
 
   // Audio file upload
@@ -253,7 +386,16 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   };
 
   return (
-    <div className="w-full mb-8 font-sans">
+    <div
+      className="w-full mb-8 font-sans"
+      onDragOver={(e) => {
+        e.preventDefault();
+      }}
+      onDrop={(e) => {
+        // Prevent default browser behavior of opening image as link
+        e.preventDefault();
+      }}
+    >
       
       {/* HIDDEN FILE INPUTS */}
       <input
@@ -326,6 +468,23 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             <span>The Cook</span>
           </button>
         </div>
+
+        {/* Drag-and-drop quick hint */}
+        <div className="mt-3.5 pt-3 border-t border-black/10 flex flex-wrap items-center justify-between gap-2 text-xs text-black/60">
+          <div className="flex items-center gap-1.5 font-medium">
+            <Upload className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span>Drag & drop whiteboard photos or grocery receipts directly onto either panel</span>
+          </div>
+          <span className="text-[11px] font-mono text-black/50">
+            {files.length > 0 ? (
+              <span className="text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                ✓ {files.length} photo{files.length > 1 ? "s" : ""} attached
+              </span>
+            ) : (
+              "PNG • JPG • WEBP • screenshots"
+            )}
+          </span>
+        </div>
       </div>
 
       {/* CRITICAL RESPONSIVE TWO-COLUMN GRID */}
@@ -335,10 +494,37 @@ export const InputPanel: React.FC<InputPanelProps> = ({
         {/* LEFT COLUMN: NOTE ENGINE FEATURES & TEMPLATES */}
         {/* ========================================================= */}
         <div
-          className={`bg-white border border-black/15 rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between transition-all ${
-            route === "notes" ? "ring-2 ring-indigo-500" : ""
+          onDragEnter={handleNotesDragEnter}
+          onDragOver={handleNotesDragOver}
+          onDragLeave={handleNotesDragLeave}
+          onDrop={handleNotesDrop}
+          className={`relative bg-white border rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between transition-all overflow-hidden ${
+            isDraggingNotes
+              ? "border-indigo-500 ring-4 ring-indigo-200 bg-indigo-50/20 scale-[1.008]"
+              : route === "notes"
+              ? "border-indigo-600 ring-2 ring-indigo-500"
+              : "border-black/15"
           }`}
         >
+          {/* Active Drag Overlay for Note Cram */}
+          {isDraggingNotes && (
+            <div className="absolute inset-0 z-30 bg-indigo-950/92 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center text-white pointer-events-none transition-all">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-xl mb-3 animate-bounce border border-indigo-400">
+                <Camera className="w-8 h-8 text-white" />
+              </div>
+              <h4 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                Drop Whiteboard or Note Photos Here
+              </h4>
+              <p className="text-xs text-indigo-200 mt-1.5 max-w-xs leading-relaxed">
+                Release to attach and untangle handwritten notes, whiteboard formulas & diagrams
+              </p>
+              <div className="mt-3 flex items-center gap-1.5">
+                <span className="text-[10px] font-mono font-semibold bg-white/20 text-white px-2.5 py-1 rounded-full border border-white/30">
+                  Whiteboards • Paper Notes • Slides
+                </span>
+              </div>
+            </div>
+          )}
           <div>
             {/* Header Block */}
             <div className="flex items-center justify-between border-b border-black/10 pb-3 mb-4">
@@ -502,31 +688,68 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             )}
 
             {noteTab === "photo" && (
-              <div className="border border-dashed border-black/20 rounded-xl p-4 mb-3 bg-[#FAF8F5] text-center">
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processFiles(e.dataTransfer.files, "notes");
+                  }
+                }}
+                className="border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-xl p-3.5 mb-3 bg-[#FAF8F5] text-center transition-all group"
+              >
                 {files.length === 0 ? (
                   <div
                     onClick={() => imageInputRef.current?.click()}
-                    className="cursor-pointer py-3 hover:bg-black/5 rounded-lg transition-colors"
+                    className="cursor-pointer py-3.5 px-2 hover:bg-indigo-50/50 rounded-lg transition-colors"
                   >
-                    <Camera className="w-7 h-7 text-indigo-500 mx-auto mb-1" />
-                    <p className="font-medium text-xs text-black">
-                      upload whiteboard / note photo
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center mx-auto mb-2 text-indigo-600 group-hover:scale-105 transition-transform shadow-2xs">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <p className="font-semibold text-xs text-black">
+                      Drag & drop photos of whiteboards or lecture notes here
                     </p>
-                    <p className="text-[10px] text-black/50 mt-0.5">
-                      click to choose images (PNG, JPG)
+                    <p className="text-[11px] text-black/60 mt-0.5">
+                      or <span className="text-indigo-600 font-medium underline">browse from your computer</span>
                     </p>
+                    <span className="inline-block mt-2 text-[10px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                      📸 whiteboard scribbles • math equations • slide photos
+                    </span>
                   </div>
                 ) : (
                   <div>
-                    <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-black/10 text-xs">
+                      <span className="font-semibold text-black flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>{files.length} photo{files.length > 1 ? "s" : ""} attached</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={clearAllFiles}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-medium cursor-pointer"
+                      >
+                        clear all
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-2.5">
                       {files.map((file, idx) => (
-                        <div key={idx} className="relative border border-black/15 rounded-lg bg-white p-1">
+                        <div key={idx} className="relative group border border-black/15 rounded-lg bg-white p-1 overflow-hidden shadow-2xs">
                           <img src={file.previewUrl} alt={file.name} className="w-full h-16 object-cover rounded" />
+                          <p className="text-[9px] text-black/70 truncate mt-1 text-left px-0.5 font-mono">
+                            {file.name}
+                          </p>
                           <button
+                            type="button"
                             onClick={() => removeFile(idx)}
-                            className="absolute -top-1 -right-1 bg-black text-white rounded-full p-0.5 cursor-pointer"
+                            className="absolute top-1 right-1 bg-black/80 hover:bg-rose-600 text-white rounded-full p-1 cursor-pointer transition-colors shadow-xs"
+                            title="Remove photo"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-2.5 h-2.5" />
                           </button>
                         </div>
                       ))}
@@ -534,9 +757,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => imageInputRef.current?.click()}
-                      className="w-full bg-white border border-black/15 hover:border-black/30 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
+                      className="w-full bg-white hover:bg-indigo-50/50 border border-black/15 hover:border-indigo-400 py-1.5 px-2 text-xs font-medium rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5 text-black"
                     >
-                      + add more note photos
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>+ drop or add more whiteboard photos</span>
                     </button>
                   </div>
                 )}
@@ -633,10 +857,37 @@ export const InputPanel: React.FC<InputPanelProps> = ({
         {/* RIGHT COLUMN: DORM CHEF BUDGET & MEAL TOOLS */}
         {/* ========================================================= */}
         <div
-          className={`bg-white border border-black/15 rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between transition-all ${
-            route === "chef" ? "ring-2 ring-amber-500" : ""
+          onDragEnter={handleChefDragEnter}
+          onDragOver={handleChefDragOver}
+          onDragLeave={handleChefDragLeave}
+          onDrop={handleChefDrop}
+          className={`relative bg-white border rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between transition-all overflow-hidden ${
+            isDraggingChef
+              ? "border-amber-500 ring-4 ring-amber-200 bg-amber-50/20 scale-[1.008]"
+              : route === "chef"
+              ? "border-amber-600 ring-2 ring-amber-500"
+              : "border-black/15"
           }`}
         >
+          {/* Active Drag Overlay for The Cook */}
+          {isDraggingChef && (
+            <div className="absolute inset-0 z-30 bg-amber-950/92 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center text-white pointer-events-none transition-all">
+              <div className="w-16 h-16 rounded-2xl bg-amber-600 text-white flex items-center justify-center shadow-xl mb-3 animate-bounce border border-amber-400">
+                <Receipt className="w-8 h-8 text-white" />
+              </div>
+              <h4 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                Drop Receipt or Fridge Photos Here
+              </h4>
+              <p className="text-xs text-amber-200 mt-1.5 max-w-xs leading-relaxed">
+                Release to scan grocery prices, pantry leftovers & generate budget dorm recipes
+              </p>
+              <div className="mt-3 flex items-center gap-1.5">
+                <span className="text-[10px] font-mono font-semibold bg-white/20 text-white px-2.5 py-1 rounded-full border border-white/30">
+                  Grocery Receipts • Fridge Shelves • Pantry Leftovers
+                </span>
+              </div>
+            </div>
+          )}
           <div>
             {/* Header Block */}
             <div className="flex items-center justify-between border-b border-black/10 pb-3 mb-4">
@@ -812,31 +1063,68 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             )}
 
             {chefTab === "photo" && (
-              <div className="border border-dashed border-black/20 rounded-xl p-4 mb-3 bg-[#FAF8F5] text-center">
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processFiles(e.dataTransfer.files, "chef");
+                  }
+                }}
+                className="border-2 border-dashed border-amber-200 hover:border-amber-400 rounded-xl p-3.5 mb-3 bg-[#FAF8F5] text-center transition-all group"
+              >
                 {files.length === 0 ? (
                   <div
                     onClick={() => chefImageInputRef.current?.click()}
-                    className="cursor-pointer py-3 hover:bg-black/5 rounded-lg transition-colors"
+                    className="cursor-pointer py-3.5 px-2 hover:bg-amber-50/50 rounded-lg transition-colors"
                   >
-                    <Camera className="w-7 h-7 text-amber-500 mx-auto mb-1" />
-                    <p className="font-medium text-xs text-black">
-                      upload fridge or receipt photo
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-2 text-amber-600 group-hover:scale-105 transition-transform shadow-2xs">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <p className="font-semibold text-xs text-black">
+                      Drag & drop grocery receipts or fridge photos here
                     </p>
-                    <p className="text-[10px] text-black/50 mt-0.5">
-                      click to choose image (PNG, JPG)
+                    <p className="text-[11px] text-black/60 mt-0.5">
+                      or <span className="text-amber-700 font-medium underline">browse from your computer</span>
                     </p>
+                    <span className="inline-block mt-2 text-[10px] font-mono text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                      🧾 paper receipts • shelf photos • pantry items
+                    </span>
                   </div>
                 ) : (
                   <div>
-                    <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-black/10 text-xs">
+                      <span className="font-semibold text-black flex items-center gap-1.5">
+                        <Receipt className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{files.length} photo{files.length > 1 ? "s" : ""} attached</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={clearAllFiles}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-medium cursor-pointer"
+                      >
+                        clear all
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-2.5">
                       {files.map((file, idx) => (
-                        <div key={idx} className="relative border border-black/15 rounded-lg bg-white p-1">
+                        <div key={idx} className="relative group border border-black/15 rounded-lg bg-white p-1 overflow-hidden shadow-2xs">
                           <img src={file.previewUrl} alt={file.name} className="w-full h-16 object-cover rounded" />
+                          <p className="text-[9px] text-black/70 truncate mt-1 text-left px-0.5 font-mono">
+                            {file.name}
+                          </p>
                           <button
+                            type="button"
                             onClick={() => removeFile(idx)}
-                            className="absolute -top-1 -right-1 bg-black text-white rounded-full p-0.5 cursor-pointer"
+                            className="absolute top-1 right-1 bg-black/80 hover:bg-rose-600 text-white rounded-full p-1 cursor-pointer transition-colors shadow-xs"
+                            title="Remove photo"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-2.5 h-2.5" />
                           </button>
                         </div>
                       ))}
@@ -844,9 +1132,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => chefImageInputRef.current?.click()}
-                      className="w-full bg-white border border-black/15 hover:border-black/30 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
+                      className="w-full bg-white hover:bg-amber-50/50 border border-black/15 hover:border-amber-400 py-1.5 px-2 text-xs font-medium rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5 text-black"
                     >
-                      + add more photos
+                      <Upload className="w-3.5 h-3.5 text-amber-600" />
+                      <span>+ drop or add more receipt photos</span>
                     </button>
                   </div>
                 )}
