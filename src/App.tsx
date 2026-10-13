@@ -4,12 +4,13 @@ import { PresetBar } from "./components/PresetBar";
 import { InputPanel } from "./components/InputPanel";
 import { OutputView } from "./components/OutputView";
 import { FlashcardModal } from "./components/FlashcardModal";
+import { QuizModal } from "./components/QuizModal";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { LoginScreen, UserProfile } from "./components/LoginScreen";
 import { ScribbleLogo } from "./components/ScribbleLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { OpeningPaintAnimation } from "./components/OpeningPaintAnimation";
-import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample, StudyFolder } from "./types";
+import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample, StudyFolder, QuizData } from "./types";
 import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus, AlertCircle, Check, X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "./context/AuthContext";
@@ -124,6 +125,11 @@ export default function App() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState<boolean>(false);
   const [isLoadingFlashcards, setIsLoadingFlashcards] = useState<boolean>(false);
+
+  // Practice Quiz state
+  const [quizData, setQuizData] = useState<QuizData | null>(null);
+  const [isQuizOpen, setIsQuizOpen] = useState<boolean>(false);
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState<boolean>(false);
 
   // Peer Shared Note State
   const [isLoadingSharedNote, setIsLoadingSharedNote] = useState<boolean>(false);
@@ -668,6 +674,36 @@ export default function App() {
     }
   };
 
+  // Generate Practice Quiz (Interactive Self-Testing)
+  const handleGenerateQuiz = async (markdownNote: string) => {
+    try {
+      setIsLoadingQuiz(true);
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch("/api/quiz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({ markdownNote, routeDetected }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate practice quiz.");
+      }
+
+      if (data.quiz) {
+        setQuizData(data.quiz);
+        setIsQuizOpen(true);
+      }
+    } catch (e: any) {
+      showToast(e.message || "Failed to generate practice quiz.", "error");
+    } finally {
+      setIsLoadingQuiz(false);
+    }
+  };
+
   // Reset inputs
   const handleReset = () => {
     setPromptText("");
@@ -679,7 +715,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-black font-sans selection:bg-[#ec4899] selection:text-white pb-16">
+    <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#121212] text-black dark:text-[#f3f4f6] font-sans selection:bg-[#ec4899] selection:text-white pb-16 transition-colors">
       
       {/* Opening Paint-Over Animation */}
       {showOpeningAnimation && (
@@ -795,10 +831,16 @@ export default function App() {
 
                   <button
                     onClick={handleBackToHomeClick}
-                    className="flex items-center gap-2 text-xl font-extrabold text-black dark:text-white font-sans lowercase hover:text-indigo-600 transition-colors cursor-pointer group"
+                    className="flex items-center gap-2.5 text-xl font-black text-neutral-900 dark:text-white font-sans lowercase hover:text-indigo-600 transition-colors cursor-pointer group"
                   >
                     <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-indigo-600 transition-colors" />
-                    <span>skrible</span>
+                    <div className="flex items-center gap-1">
+                      <span className="relative">
+                        skrible
+                        <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FFE600] via-[#FF90E8] to-[#00F5FF] rounded-full opacity-80" />
+                      </span>
+                      <span className="inline-block w-2 h-2 rounded-full bg-[#FFE600] border border-black dark:border-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" />
+                    </div>
                   </button>
                   <span className="text-xs font-mono text-black/50 dark:text-white/50 hidden md:inline">
                     / untangler tool
@@ -973,6 +1015,8 @@ export default function App() {
                   budget={budget}
                   isStreaming={isStreaming}
                   onGenerateFlashcards={handleGenerateFlashcards}
+                  onGenerateQuiz={handleGenerateQuiz}
+                  isLoadingQuiz={isLoadingQuiz}
                   onSaveToHistory={handleSaveToHistory}
                   isSaved={isSaved}
                   onNewUntangle={handleReset}
@@ -1035,6 +1079,19 @@ export default function App() {
           onClose={() => setIsFlashcardsOpen(false)}
         />
       )}
+
+      {/* Interactive Practice Quiz Modal */}
+      <QuizModal
+        isOpen={isQuizOpen}
+        quizData={quizData}
+        isLoading={isLoadingQuiz}
+        onClose={() => setIsQuizOpen(false)}
+        onRetake={() => {
+          if (outputMarkdown) handleGenerateQuiz(outputMarkdown);
+        }}
+        isDark={isDarkMode}
+        routeDetected={routeDetected}
+      />
 
       {/* Flashcard Loading Overlay */}
       {isLoadingFlashcards && (

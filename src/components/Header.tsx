@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
                     SKRIBLE
                   </text>
 
-                  {/* Chunky solid white letter core */}
+                  {/* Chunky vibrant yellow letter core */}
                   <text
                     x="125"
                     y="38"
@@ -73,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
                     fontSize="40"
                     fontWeight="900"
                     letterSpacing="3px"
-                    fill="#FFFFFF"
+                    fill="#FFE600"
                     stroke="none"
                   >
                     SKRIBLE

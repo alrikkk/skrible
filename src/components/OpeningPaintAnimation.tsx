@@ -467,11 +467,21 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                 d={scribbleData}
               />
 
+              {/* Layer 1.5: Comic Black Ink Contour Underlay (Guarantees logo is never lost or pure white) */}
+              <path
+                stroke="#000000"
+                strokeWidth="18"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={0.92}
+                d={scribbleData}
+              />
+
               {/* Layer 2: Main Bold Ink Line */}
               <path
                 ref={scribblePathRef}
                 stroke={palette.ink}
-                strokeWidth="14"
+                strokeWidth="12"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 style={{

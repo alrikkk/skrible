@@ -126,20 +126,30 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
           <path
             ref={accentPathRef}
             stroke="url(#scribbleAccentGrad)"
-            strokeWidth="18"
+            strokeWidth="20"
             strokeLinecap="round"
             strokeLinejoin="round"
             transform="translate(4, 5)"
-            opacity={isHovered ? 0.95 : 0.75}
+            opacity={isHovered ? 0.95 : 0.8}
             d={scribbleData}
           />
         )}
 
-        {/* Layer 2: Main Bold Ink Line */}
+        {/* Layer 1.5: Deep Black Ink Contour (Guarantees crisp visibility on light or dark backgrounds) */}
+        <path
+          stroke="#000000"
+          strokeWidth="16"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.95"
+          d={scribbleData}
+        />
+
+        {/* Layer 2: Main Core Line (Crisp and defined) */}
         <path
           ref={pathRef}
           stroke="currentColor"
-          strokeWidth="13"
+          strokeWidth="10"
           strokeLinecap="round"
           strokeLinejoin="round"
           d={scribbleData}
@@ -153,8 +163,8 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
             cy="390"
             r="20"
             fill="#FFE600"
-            stroke="currentColor"
-            strokeWidth="8"
+            stroke="#000000"
+            strokeWidth="7"
             animate={{
               scale: isHovered ? [1, 1.25, 1] : 1,
             }}
@@ -166,8 +176,8 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
             cy="430"
             r="15"
             fill="#FF90E8"
-            stroke="currentColor"
-            strokeWidth="7"
+            stroke="#000000"
+            strokeWidth="6"
             animate={{
               scale: isHovered ? [1, 1.3, 1] : 1,
             }}
@@ -179,8 +189,8 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
             cy="460"
             r="11"
             fill="#00F5FF"
-            stroke="currentColor"
-            strokeWidth="6"
+            stroke="#000000"
+            strokeWidth="5"
             animate={{
               scale: isHovered ? [1, 1.35, 1] : 1,
             }}
@@ -195,8 +205,8 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
             <motion.path
               d="M 580 90 Q 580 120 610 120 Q 580 120 580 150 Q 580 120 550 120 Q 580 120 580 90 Z"
               fill="#FFE600"
-              stroke="currentColor"
-              strokeWidth="5"
+              stroke="#000000"
+              strokeWidth="4.5"
               strokeLinejoin="round"
               initial={{ scale: 0, opacity: 0 }}
               animate={{
@@ -217,8 +227,8 @@ export const ScribbleLogo: React.FC<ScribbleLogoProps> = ({
             <motion.path
               d="M 170 85 Q 170 100 185 100 Q 170 100 170 115 Q 170 100 155 100 Q 170 100 170 85 Z"
               fill="#FF90E8"
-              stroke="currentColor"
-              strokeWidth="4"
+              stroke="#000000"
+              strokeWidth="3.5"
               strokeLinejoin="round"
               initial={{ scale: 0, opacity: 0 }}
               animate={{

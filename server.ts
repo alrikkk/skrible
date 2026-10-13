@@ -894,6 +894,98 @@ ${markdownNote}`;
   }
 });
 
+// Interactive Practice Quiz Generator
+app.post("/api/quiz", async (req, res) => {
+  try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
+    const { markdownNote, routeDetected } = req.body;
+    if (!markdownNote || typeof markdownNote !== "string") {
+      return res.status(400).json({ error: "No note content provided." });
+    }
+
+    const ai = getGenAI();
+    const prompt = `You are an expert study coach for students. Convert the following untangled ${
+      routeDetected === "chef" ? "recipe and meal plan" : "study notes"
+    } into an engaging, interactive 4 to 5 question practice quiz to test recall and comprehension.
+
+Return strict JSON matching this structure:
+{
+  "quizTitle": "Untangled Knowledge Check",
+  "topic": "Key Subject / Meal",
+  "questions": [
+    {
+      "id": 1,
+      "question": "Clear, concise multiple choice question?",
+      "options": ["First option", "Second option", "Third option", "Fourth option"],
+      "correctIndex": 0,
+      "explanation": "Why this answer is correct based on the notes.",
+      "hint": "Helpful clue without giving the answer away.",
+      "difficulty": "Medium"
+    }
+  ]
+}
+
+Ensure:
+- Exactly 4 options per question.
+- correctIndex is the integer 0, 1, 2, or 3 corresponding to the correct option.
+- Explanations are encouraging and educational.
+- Difficulties are varied (Easy, Medium, Hard).
+
+Note Content:
+${markdownNote.slice(0, 15000)}`;
+
+    const response = await generateContentWithRetry(ai, {
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    let quizData: any = null;
+    try {
+      quizData = JSON.parse(response.text || "{}");
+    } catch {
+      // Clean possible backticks
+      const cleanJson = (response.text || "").replace(/```json/gi, "").replace(/```/g, "").trim();
+      quizData = JSON.parse(cleanJson);
+    }
+
+    if (!quizData || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+      // Fallback questions if empty
+      quizData = {
+        quizTitle: "Untangled Quick Knowledge Check",
+        topic: "Core Concepts",
+        questions: [
+          {
+            id: 1,
+            question: "What is the primary key concept highlighted in your untangled notes?",
+            options: [
+              "The foundational theory and main actionable takeaways",
+              "Unrelated filler details",
+              "Secondary background trivia",
+              "None of the above"
+            ],
+            correctIndex: 0,
+            explanation: "The untangled summary prioritizes high-yield definitions and actionable steps.",
+            hint: "Focus on the main headings in your note.",
+            difficulty: "Easy"
+          }
+        ]
+      };
+    }
+
+    await recordUsageLog(auth, "/api/quiz");
+    res.json({ quiz: quizData });
+  } catch (error: any) {
+    console.error("Error in /api/quiz:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate interactive quiz." });
+  }
+});
+
 // Executive Summary Endpoint
 app.post("/api/summarize", async (req, res) => {
   try {

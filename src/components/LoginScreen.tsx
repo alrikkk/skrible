@@ -232,13 +232,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-black font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#121212] text-black dark:text-[#f3f4f6] font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8 transition-colors">
       {/* Header */}
       <div className="max-w-md w-full mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={onBackToHome}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 hover:text-black bg-white border border-black/15 rounded-lg shadow-2xs hover:border-black/30 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white bg-white dark:bg-[#2a2a2a] border border-black/15 dark:border-white/20 rounded-lg shadow-2xs hover:border-black/30 transition-all cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Home</span>
@@ -249,13 +249,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         <button
           onClick={onBackToHome}
-          className="flex items-center gap-2 cursor-pointer group"
+          className="flex items-center gap-2.5 cursor-pointer group"
           title="Back to home"
         >
           <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-[#ec4899] dark:group-hover:text-[#ec4899] transition-colors" />
-          <span className="text-lg font-extrabold text-black dark:text-white tracking-tight font-sans lowercase group-hover:text-[#ec4899] dark:group-hover:text-[#ec4899] transition-colors">
-            skrible
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-xl font-black text-neutral-900 dark:text-white tracking-tight font-sans lowercase group-hover:text-[#ec4899] dark:group-hover:text-[#ec4899] transition-colors relative">
+              skrible
+              <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FFE600] via-[#FF90E8] to-[#00F5FF] rounded-full opacity-80" />
+            </span>
+            <span className="inline-block w-2 h-2 rounded-full bg-[#FFE600] border border-black dark:border-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" />
+          </div>
         </button>
       </div>
 

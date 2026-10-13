@@ -91,3 +91,20 @@ export interface PresetSample {
   budget?: string;
   files?: FileAttachment[];
 }
+
+export interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  hint?: string;
+  difficulty?: "Easy" | "Medium" | "Hard";
+}
+
+export interface QuizData {
+  quizTitle: string;
+  topic?: string;
+  questions: QuizQuestion[];
+}
+

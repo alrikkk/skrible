@@ -34,7 +34,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="w-full bg-[#FAF8F5] border-b border-black/10 pt-6 pb-12 px-4 sm:px-8 relative overflow-hidden">
+    <div className="w-full bg-[#FAF8F5] dark:bg-[#121212] text-black dark:text-[#f3f4f6] border-b border-black/10 dark:border-white/10 pt-6 pb-12 px-4 sm:px-8 relative overflow-hidden transition-colors">
       
       {/* Background Dotted Grid Pattern */}
       <div 
@@ -48,21 +48,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       <div className="max-w-6xl mx-auto relative z-10">
         
         {/* Top Navbar */}
-        <div className="flex items-center justify-between pb-8 mb-6 border-b border-black/10">
+        <div className="flex items-center justify-between pb-8 mb-6 border-b border-black/10 dark:border-white/10">
           
           {/* Lowercase Wordmark "skrible" */}
           <div className="flex items-center gap-2">
             <button 
               onClick={onReset}
-              className="group flex items-center gap-2 text-left cursor-pointer focus:outline-none"
+              className="group flex items-center gap-3 text-left cursor-pointer focus:outline-none"
               title="skrible home"
             >
               <ScribbleLogo className="h-12 sm:h-14 w-auto text-black dark:text-white group-hover:scale-105 transition-transform" />
-              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black dark:text-white font-sans lowercase hover:text-[#ec4899] dark:hover:text-[#ec4899] transition-colors">
-                skrible
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-3xl sm:text-4xl font-black tracking-tight text-neutral-900 dark:text-white font-sans lowercase group-hover:text-[#ec4899] dark:group-hover:text-[#ec4899] transition-colors relative">
+                  skrible
+                  <span className="absolute -bottom-1 left-0 right-0 h-1 bg-gradient-to-r from-[#FFE600] via-[#FF90E8] to-[#00F5FF] rounded-full opacity-85 group-hover:opacity-100 transition-opacity" />
+                </span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FFE600] border-2 border-black dark:border-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] animate-bounce" />
+              </div>
             </button>
-            <span className="text-xs font-medium text-black/50 ml-2 hidden sm:inline-block">
+            <span className="text-xs font-semibold text-black/50 dark:text-white/50 ml-2 hidden sm:inline-block">
               / student note & meal untangler
             </span>
           </div>
@@ -134,11 +138,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
         {/* Hero Section Copy */}
         <div className="max-w-2xl mb-10 pt-2">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-black leading-[1.1] mb-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-4">
             Untangle lectures, notes, and dorm meals.
           </h1>
 
-          <p className="text-base sm:text-lg text-black/70 leading-relaxed mb-6 font-normal">
+          <p className="text-base sm:text-lg text-neutral-700 dark:text-neutral-300 leading-relaxed mb-6 font-normal">
             Turn long lecture recordings, whiteboard notes, and leftover groceries into structured study guides, flashcard decks, and budget-friendly recipes.
           </p>
 
@@ -154,7 +158,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* SCATTERED DESK CANVAS / CORKBOARD ARTWORK */}
         <div 
           ref={containerRef}
-          className="relative w-full min-h-0 md:min-h-[460px] bg-white/60 border border-black/10 rounded-2xl p-4 sm:p-8 backdrop-blur-xs shadow-xs overflow-hidden"
+          className="relative w-full min-h-0 md:min-h-[460px] bg-white/70 dark:bg-[#1a1a1a]/80 border border-black/10 dark:border-white/10 rounded-2xl p-4 sm:p-8 backdrop-blur-xs shadow-xs overflow-hidden"
         >
           
           {/* Subtle background texture lines */}

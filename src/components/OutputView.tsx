@@ -73,6 +73,7 @@ import {
   Printer,
   FileText,
   FileDown,
+  Brain,
 } from "lucide-react";
 import { downloadNotePdf } from "../utils/pdfExport";
 
@@ -82,6 +83,8 @@ interface OutputViewProps {
   budget?: string;
   isStreaming?: boolean;
   onGenerateFlashcards: (markdown: string) => void;
+  onGenerateQuiz?: (markdown: string) => void;
+  isLoadingQuiz?: boolean;
   onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[]) => void;
   isSaved: boolean;
   onNewUntangle: () => void;
@@ -248,6 +251,8 @@ export const OutputView: React.FC<OutputViewProps> = ({
   budget,
   isStreaming = false,
   onGenerateFlashcards,
+  onGenerateQuiz,
+  isLoadingQuiz = false,
   onSaveToHistory,
   isSaved,
   onNewUntangle,
@@ -1890,6 +1895,22 @@ export const OutputView: React.FC<OutputViewProps> = ({
             >
               <Timer className="w-3.5 h-3.5 text-amber-700" />
               <span>cooking timers</span>
+            </button>
+          )}
+
+          {/* Practice Quiz & Self-Testing Challenge */}
+          {onGenerateQuiz && (
+            <button
+              onClick={() => onGenerateQuiz(activeMarkdown)}
+              disabled={isLoadingQuiz}
+              className="flex items-center gap-1.5 bg-[#FFE600] hover:bg-[#fed600] text-black border-2 border-black px-3.5 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:scale-[1.02] active:scale-[0.98]"
+              title="Generate an interactive practice quiz to test recall on this note"
+            >
+              <Brain className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>{isLoadingQuiz ? "drafting quiz..." : "Practice Quiz"}</span>
+              <span className="bg-black text-[#FFE600] text-[9px] px-1 py-0.2 rounded-sm font-black uppercase tracking-wider">
+                New
+              </span>
             </button>
           )}
 
