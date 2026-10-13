@@ -252,8 +252,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           className="flex items-center gap-2 cursor-pointer group"
           title="Back to home"
         >
-          <ScribbleLogo className="h-9 sm:h-10 w-auto text-black group-hover:text-[#ec4899] transition-colors" />
-          <span className="text-lg font-extrabold text-black tracking-tight font-sans lowercase group-hover:text-[#ec4899] transition-colors">
+          <ScribbleLogo className="h-9 sm:h-10 w-auto text-black dark:text-white group-hover:text-[#ec4899] dark:group-hover:text-[#ec4899] transition-colors" />
+          <span className="text-lg font-extrabold text-black dark:text-white tracking-tight font-sans lowercase group-hover:text-[#ec4899] dark:group-hover:text-[#ec4899] transition-colors">
             skrible
           </span>
         </button>

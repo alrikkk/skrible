@@ -59,8 +59,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               className="group flex items-center gap-2 text-left cursor-pointer focus:outline-none"
               title="skrible home"
             >
-              <ScribbleLogo className="h-12 sm:h-14 w-auto text-black group-hover:scale-105 transition-transform" />
-              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black font-sans lowercase hover:text-[#ec4899] transition-colors">
+              <ScribbleLogo className="h-12 sm:h-14 w-auto text-black dark:text-white group-hover:scale-105 transition-transform" />
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black dark:text-white font-sans lowercase hover:text-[#ec4899] dark:hover:text-[#ec4899] transition-colors">
                 skrible
               </span>
             </button>
