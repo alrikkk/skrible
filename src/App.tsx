@@ -10,7 +10,7 @@ import { ScribbleLogo } from "./components/ScribbleLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { OpeningPaintAnimation } from "./components/OpeningPaintAnimation";
 import { RouteMode, FileAttachment, UntangleHistoryItem, Flashcard, PresetSample, StudyFolder } from "./types";
-import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus, AlertCircle, Check, X, Trash2, Paintbrush } from "lucide-react";
+import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History, Home, ArrowRight, User, LogOut, Share2, Bookmark, ExternalLink, Copy, Plus, AlertCircle, Check, X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "./context/AuthContext";
 import { supabase, getAuthHeaders } from "./lib/supabaseClient";
@@ -21,7 +21,8 @@ export default function App() {
   const [showOpeningAnimation, setShowOpeningAnimation] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
-      return sessionStorage.getItem("skrible_intro_seen") !== "true";
+      // Plays when someone enters the page for the first time
+      return localStorage.getItem("skrible_intro_seen_v2") !== "true";
     } catch {
       return true;
     }
@@ -30,7 +31,7 @@ export default function App() {
   const handleCompleteIntro = useCallback(() => {
     setShowOpeningAnimation(false);
     try {
-      sessionStorage.setItem("skrible_intro_seen", "true");
+      localStorage.setItem("skrible_intro_seen_v2", "true");
     } catch {}
   }, []);
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
@@ -750,7 +751,6 @@ export default function App() {
               onSelectPreset={handleSelectPreset}
               isDark={isDarkMode}
               onToggleTheme={toggleTheme}
-              onReplayIntro={() => setShowOpeningAnimation(true)}
             />
           </motion.div>
         ) : currentPage === "login" ? (
@@ -806,16 +806,6 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {/* Replay Opening Paint Animation */}
-                  <button
-                    onClick={() => setShowOpeningAnimation(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-black dark:text-white bg-white dark:bg-[#2a2a2a] hover:bg-pink-50 dark:hover:bg-pink-950/30 border border-black/20 dark:border-white/20 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95 hover:border-pink-500"
-                    title="Replay opening paint animation"
-                  >
-                    <Paintbrush className="w-3.5 h-3.5 text-[#FF90E8]" />
-                    <span className="hidden md:inline">paint intro</span>
-                  </button>
-
                   {/* Theme Toggle Button */}
                   <ThemeToggle isDark={isDarkMode} onToggle={toggleTheme} />
 

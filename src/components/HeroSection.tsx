@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { History, RefreshCw, Sparkles, Mic, FileText, Utensils, ArrowRight, User, LogOut, Paintbrush } from "lucide-react";
+import { History, RefreshCw, Sparkles, Mic, FileText, Utensils, ArrowRight, User, LogOut } from "lucide-react";
 import { motion } from "motion/react";
 import { ScribbleLogo } from "./ScribbleLogo";
 import { ThemeToggle } from "./ThemeToggle";
@@ -17,7 +17,6 @@ interface HeroSectionProps {
   onSelectPreset?: (preset: PresetSample) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
-  onReplayIntro?: () => void;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -31,7 +30,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectPreset,
   isDark = false,
   onToggleTheme,
-  onReplayIntro,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -73,17 +71,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle isDark={isDark} onToggle={onToggleTheme} />
 
-            {/* Replay Opening Paint Animation */}
-            {onReplayIntro && (
-              <button
-                onClick={onReplayIntro}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-black dark:text-white bg-white dark:bg-[#2a2a2a] hover:bg-pink-50 dark:hover:bg-pink-950/30 border border-black/20 dark:border-white/20 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95 hover:border-pink-500"
-                title="Replay opening paint animation"
-              >
-                <Paintbrush className="w-3.5 h-3.5 text-[#FF90E8]" />
-                <span className="hidden sm:inline">paint intro</span>
-              </button>
-            )}
+
 
             <button
               onClick={onReset}
