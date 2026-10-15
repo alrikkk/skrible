@@ -17,6 +17,7 @@ interface HeroSectionProps {
   onSelectPreset?: (preset: PresetSample) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  onTriggerIntro?: () => void;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -30,6 +31,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectPreset,
   isDark = false,
   onToggleTheme,
+  onTriggerIntro,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,9 +55,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Lowercase Wordmark "skrible" */}
           <div className="flex items-center gap-2">
             <button 
-              onClick={onReset}
+              onClick={() => {
+                onReset();
+                onTriggerIntro?.();
+              }}
               className="group flex items-center gap-3 text-left cursor-pointer focus:outline-none"
-              title="skrible home"
+              title="skrible home (click to replay paint intro)"
             >
               <ScribbleLogo className="h-12 sm:h-14 w-auto text-black dark:text-white group-hover:scale-105 transition-transform" />
               <div className="flex items-center gap-1.5">

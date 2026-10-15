@@ -23,8 +23,10 @@ export default function App() {
   const [showOpeningAnimation, setShowOpeningAnimation] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("intro") === "true") return true;
       // Plays when someone enters the page for the first time
-      return localStorage.getItem("skrible_intro_seen_v2") !== "true";
+      return sessionStorage.getItem("skrible_intro_seen_session") !== "true";
     } catch {
       return true;
     }
@@ -33,8 +35,13 @@ export default function App() {
   const handleCompleteIntro = useCallback(() => {
     setShowOpeningAnimation(false);
     try {
-      localStorage.setItem("skrible_intro_seen_v2", "true");
+      sessionStorage.setItem("skrible_intro_seen_session", "true");
     } catch {}
+  }, []);
+
+  // Expose global replay handler
+  useEffect(() => {
+    (window as any).replayPaintAnimation = () => setShowOpeningAnimation(true);
   }, []);
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
   const [showClearAllModal, setShowClearAllModal] = useState<boolean>(false);
@@ -785,12 +792,15 @@ export default function App() {
     <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#121212] text-black dark:text-[#f3f4f6] font-sans selection:bg-[#ec4899] selection:text-white pb-16 transition-colors">
       
       {/* Opening Paint-Over Animation */}
-      {showOpeningAnimation && (
-        <OpeningPaintAnimation
-          onComplete={handleCompleteIntro}
-          isDark={isDarkMode}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {showOpeningAnimation && (
+          <OpeningPaintAnimation
+            key="paint-over-intro"
+            onComplete={handleCompleteIntro}
+            isDark={isDarkMode}
+          />
+        )}
+      </AnimatePresence>
 
       {/* App-Wide Floating Notification Toast */}
       <AnimatePresence>
@@ -854,6 +864,7 @@ export default function App() {
               onSelectPreset={handleSelectPreset}
               isDark={isDarkMode}
               onToggleTheme={toggleTheme}
+              onTriggerIntro={() => setShowOpeningAnimation(true)}
             />
           </motion.div>
         ) : currentPage === "login" ? (
