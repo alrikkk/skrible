@@ -986,6 +986,81 @@ ${markdownNote.slice(0, 15000)}`;
   }
 });
 
+// Auto-Tagging & Folder Organization Analyzer Endpoint
+app.post("/api/analyze-tags", async (req, res) => {
+  try {
+    const auth = await verifyAuthAndRateLimit(req);
+    if (!auth.allowed) {
+      return res.status(auth.status || 401).json({ error: auth.error });
+    }
+
+    const { markdownNote, title, routeDetected, folders } = req.body;
+    if (!markdownNote || typeof markdownNote !== "string") {
+      return res.status(400).json({ error: "No note content provided." });
+    }
+
+    const ai = getGenAI();
+    const existingFolderNames = Array.isArray(folders)
+      ? folders.map((f: any) => `{"id": "${f.id}", "name": "${f.name}"}`).join(", ")
+      : "";
+
+    const prompt = `You are an expert academic organizer and content categorizer for students.
+Analyze the following untangled ${routeDetected === "chef" ? "recipe / meal plan" : "study notes"} and provide intelligent tags, category classifications, and folder organization suggestions.
+
+Existing user folders: [${existingFolderNames}]
+
+Return strict JSON matching this structure:
+{
+  "detectedSubject": "Specific academic discipline or recipe category (e.g. Organic Chemistry, Algorithms, Mediterranean Pasta, Microeconomics)",
+  "suggestedTags": [
+    {
+      "tag": "Tag name (short, 1-3 words)",
+      "category": "class",
+      "categoryLabel": "Class",
+      "relevanceScore": 95
+    }
+  ],
+  "recommendedFolderId": "matching existing folder id or null if none is a good match",
+  "folderMatchPercentage": 90,
+  "folderMatchReason": "Clear reason why this folder or category is suggested",
+  "suggestedNewFolderName": "Clean proposed folder name if existing folders don't match well (e.g., Biology 101, Computer Systems, Dorm Dinners)",
+  "suggestedNewFolderColor": "indigo"
+}
+
+Rules for categories:
+- category MUST be one of: "class" | "topic" | "format" | "ingredient" | "diet"
+- categoryLabel MUST be one of: "Class" | "Topic" | "Study Goal" | "Ingredient" | "Diet & Meal"
+- suggestedNewFolderColor MUST be one of: "indigo" | "emerald" | "amber" | "rose" | "purple" | "blue" | "stone"
+- Provide 4 to 8 highly relevant tags.
+- Ensure tags are accurate to the actual content.
+
+Note Title: ${title || "Untangled Note"}
+Note Content:
+${markdownNote.slice(0, 14000)}`;
+
+    const response = await generateContentWithRetry(ai, {
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    let result: any = null;
+    try {
+      result = JSON.parse(response.text || "{}");
+    } catch {
+      const cleanJson = (response.text || "").replace(/```json/gi, "").replace(/```/g, "").trim();
+      result = JSON.parse(cleanJson);
+    }
+
+    await recordUsageLog(auth, "/api/analyze-tags");
+    res.json({ analysis: result });
+  } catch (error: any) {
+    console.error("Error in /api/analyze-tags:", error);
+    res.status(500).json({ error: error?.message || "Failed to analyze tags." });
+  }
+});
+
 // Executive Summary Endpoint
 app.post("/api/summarize", async (req, res) => {
   try {

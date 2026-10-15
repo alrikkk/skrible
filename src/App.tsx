@@ -15,6 +15,7 @@ import { Zap, Brain, Utensils, Sparkles, BookOpen, ArrowLeft, RefreshCw, History
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "./context/AuthContext";
 import { supabase, getAuthHeaders } from "./lib/supabaseClient";
+import { suggestFolderForNote } from "./utils/tagSuggester";
 
 export default function App() {
   const { currentUser, session, signOut: authSignOut } = useAuth();
@@ -418,14 +419,64 @@ export default function App() {
     }
   };
 
-  // Save to history vault
-  const handleSaveToHistory = async (markdown: string, routeDet: "notes" | "chef", tags?: string[]) => {
+  // Save to history vault with auto-tagging and folder suggestion
+  const handleSaveToHistory = async (
+    markdown: string,
+    routeDet: "notes" | "chef",
+    tags?: string[],
+    folderId?: string | null
+  ) => {
     if (!markdown) return;
 
     // Extract title from markdown
     const firstLine = markdown.split("\n")[0] || "";
-    const cleanTitle = firstLine.replace(/^[#\s]+/, "").trim() || (routeDet === "chef" ? "Dorm Chef Recipe" : "Untangled Note");
-    const itemTags = tags && tags.length > 0 ? tags : [routeDet === "chef" ? "Recipe" : "Study Note"];
+    const cleanTitle =
+      firstLine.replace(/^[#\s]+/, "").trim() ||
+      (routeDet === "chef" ? "Dorm Chef Recipe" : "Untangled Note");
+
+    // Auto-analyze content if tags or folder were not provided
+    let itemTags = tags && tags.length > 0 ? tags : [];
+    let itemFolderId = folderId !== undefined ? folderId : null;
+
+    if (itemTags.length === 0 || itemFolderId === null) {
+      const folderAnalysis = suggestFolderForNote({
+        title: cleanTitle,
+        outputMarkdown: markdown,
+        inputPrompt: promptText,
+        routeDetected: routeDet,
+        folders,
+        existingTags: itemTags,
+      });
+
+      if (itemTags.length === 0) {
+        itemTags = folderAnalysis.topTags.slice(0, 4).map((t) => t.tag);
+      }
+      if (itemFolderId === null) {
+        if (folderAnalysis.recommendedFolder) {
+          itemFolderId = folderAnalysis.recommendedFolder.id;
+        } else if (folderAnalysis.suggestedNewFolderName) {
+          const newFolder: StudyFolder = {
+            id: `folder-${Date.now()}`,
+            name: folderAnalysis.suggestedNewFolderName,
+            color: folderAnalysis.suggestedNewFolderColor || "indigo",
+            createdAt: Date.now(),
+          };
+          setFolders((prev) => [...prev, newFolder]);
+          try {
+            const currentSaved = localStorage.getItem("skrible_folders");
+            const parsed = currentSaved ? JSON.parse(currentSaved) : [];
+            localStorage.setItem("skrible_folders", JSON.stringify([...parsed, newFolder]));
+          } catch {}
+          itemFolderId = newFolder.id;
+        }
+      }
+    }
+
+    if (itemTags.length === 0) {
+      itemTags = [routeDet === "chef" ? "Recipe" : "Study Note"];
+    }
+
+    const assignedFolder = folders.find((f) => f.id === itemFolderId);
 
     // 1. If logged in with Supabase, persist to notes_history table
     if (session?.user && currentUser?.provider !== "guest") {
@@ -452,9 +503,17 @@ export default function App() {
             outputMarkdown: markdown,
             budget,
             tags: itemTags,
+            folderId: itemFolderId,
           };
           setHistory((prev) => [newItem, ...prev.filter((h) => h.id !== data.id)]);
           setIsSaved(true);
+
+          showToast(
+            `Saved to Vault! Auto-tagged: ${itemTags.slice(0, 3).join(", ")}${
+              assignedFolder ? ` • In "${assignedFolder.name}"` : ""
+            }`,
+            "success"
+          );
 
           if (typeof navigator !== "undefined" && "vibrate" in navigator) {
             navigator.vibrate([40]);
@@ -479,11 +538,19 @@ export default function App() {
       outputMarkdown: markdown,
       budget,
       tags: itemTags,
+      folderId: itemFolderId,
     };
 
     const updated = [newItem, ...history];
     saveGuestHistoryToStorage(updated);
     setIsSaved(true);
+
+    showToast(
+      `Saved to Vault! Auto-tagged: ${itemTags.slice(0, 3).join(", ")}${
+        assignedFolder ? ` • In "${assignedFolder.name}"` : ""
+      }`,
+      "success"
+    );
 
     // Haptic feedback on save to vault
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {

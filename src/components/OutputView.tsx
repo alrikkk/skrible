@@ -18,6 +18,7 @@ import {
 } from "./RecipeStepTimer";
 import { NotionExportModal } from "./NotionExportModal";
 import { ShareModal } from "./ShareModal";
+import { SaveOrganizerModal } from "./SaveOrganizerModal";
 import { ExecutiveSummaryCard } from "./ExecutiveSummaryCard";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { StudyAudioPlayer } from "./StudyAudioPlayer";
@@ -27,12 +28,12 @@ import {
   SharePayloadOptions,
 } from "../utils/webShare";
 import { getAuthHeaders } from "../lib/supabaseClient";
-import { NutritionInfo, ExecutiveSummary } from "../types";
+import { NutritionInfo, ExecutiveSummary, StudyFolder } from "../types";
 import {
   estimateRecipeNutrition,
   estimateIngredientNutrition,
 } from "../utils/nutritionEstimator";
-import { analyzeNoteContentForTags } from "../utils/tagSuggester";
+import { analyzeNoteContentForTags, suggestFolderForNote } from "../utils/tagSuggester";
 import {
   Copy,
   Check,
@@ -74,6 +75,7 @@ import {
   FileText,
   FileDown,
   Brain,
+  Folder,
 } from "lucide-react";
 import { downloadNotePdf } from "../utils/pdfExport";
 
@@ -85,8 +87,11 @@ interface OutputViewProps {
   onGenerateFlashcards: (markdown: string) => void;
   onGenerateQuiz?: (markdown: string) => void;
   isLoadingQuiz?: boolean;
-  onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[]) => void;
+  onSaveToHistory: (markdown: string, routeDetected: "notes" | "chef", tags?: string[], folderId?: string | null) => void;
   isSaved: boolean;
+  savedFolderId?: string | null;
+  folders?: StudyFolder[];
+  onCreateFolder?: (name: string, color?: StudyFolder["color"]) => StudyFolder;
   onNewUntangle: () => void;
   onUpdateMarkdown?: (updatedMarkdown: string) => void;
   isReadOnly?: boolean;
@@ -255,6 +260,9 @@ export const OutputView: React.FC<OutputViewProps> = ({
   isLoadingQuiz = false,
   onSaveToHistory,
   isSaved,
+  savedFolderId,
+  folders = [],
+  onCreateFolder,
   onNewUntangle,
   onUpdateMarkdown,
   isReadOnly = false,
@@ -265,6 +273,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
   const [shared, setShared] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [isSaveOrganizerOpen, setIsSaveOrganizerOpen] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
@@ -841,6 +850,38 @@ export const OutputView: React.FC<OutputViewProps> = ({
       maxSuggestions: 8,
     });
   }, [displayMarkdown, activeMarkdown, recipeTitle, routeDetected]);
+
+  // Analyze content for recommended folder match
+  const folderAnalysis = useMemo(() => {
+    const text = displayMarkdown || activeMarkdown;
+    if (!text || text.trim().length === 0) return null;
+    return suggestFolderForNote({
+      title: recipeTitle,
+      outputMarkdown: text,
+      routeDetected,
+      folders,
+    });
+  }, [displayMarkdown, activeMarkdown, recipeTitle, routeDetected, folders]);
+
+  // Current saved folder if note is in history
+  const savedFolder = useMemo(() => {
+    if (!savedFolderId) return null;
+    return folders.find((f) => f.id === savedFolderId) || null;
+  }, [savedFolderId, folders]);
+
+  // Auto-tagging: automatically pre-select high-relevance tags if student hasn't customized yet
+  const hasAutoInitializedTags = useRef(false);
+  useEffect(() => {
+    if (!hasAutoInitializedTags.current && smartDetectedTags.length > 0 && selectedTags.length === 0) {
+      const highConfidence = smartDetectedTags
+        .filter((t) => t.relevanceScore >= 60)
+        .map((t) => t.tag);
+      if (highConfidence.length > 0) {
+        setSelectedTags(highConfidence);
+        hasAutoInitializedTags.current = true;
+      }
+    }
+  }, [smartDetectedTags, selectedTags.length]);
 
   // Real-time automatic estimated nutritional breakdown calculated from ingredients list and portion multiplier
   const autoNutrition = useMemo(() => {
@@ -1933,21 +1974,50 @@ export const OutputView: React.FC<OutputViewProps> = ({
           </button>
 
           <button
-            onClick={() => onSaveToHistory(activeMarkdown, routeDetected, selectedTags)}
-            disabled={isSaved}
-            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+            onClick={() => setIsSaveOrganizerOpen(true)}
+            className={`flex items-center gap-1.5 border px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
               isSaved
-                ? "bg-black/5 text-black/40 border-black/10 cursor-default"
-                : "bg-black hover:bg-stone-800 text-white border-black cursor-pointer shadow-xs"
+                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 shadow-2xs hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                : "bg-black hover:bg-stone-800 text-white border-black shadow-xs active:scale-95"
             }`}
+            title={
+              isSaved
+                ? "Saved to vault - click to adjust tags or folder"
+                : "Save & auto-organize into relevant folders and categories"
+            }
           >
-            <Bookmark className="w-3.5 h-3.5 text-amber-400" />
-            {isSaved ? "saved" : "save to vault"}
+            {isSaved ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                <span>{savedFolder ? `saved: ${savedFolder.name}` : "saved in vault"}</span>
+              </>
+            ) : (
+              <>
+                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                <span>save & organize</span>
+                <Sparkles className="w-3 h-3 text-[#FFE600]" />
+              </>
+            )}
           </button>
 
         </div>
       </div>
       )}
+
+      {/* AUTO-TAG & FOLDER ORGANIZER MODAL */}
+      <SaveOrganizerModal
+        isOpen={isSaveOrganizerOpen}
+        onClose={() => setIsSaveOrganizerOpen(false)}
+        markdown={displayMarkdown || activeMarkdown}
+        title={recipeTitle}
+        routeDetected={routeDetected}
+        folders={folders}
+        onCreateFolder={onCreateFolder}
+        onConfirmSave={(tags, folderId) => {
+          setSelectedTags(tags);
+          onSaveToHistory(activeMarkdown, routeDetected, tags, folderId);
+        }}
+      />
 
       {/* NOTION EXPORT MODAL */}
       <NotionExportModal
@@ -2052,86 +2122,232 @@ export const OutputView: React.FC<OutputViewProps> = ({
         />
       )}
 
-      {/* CATEGORIZATION TAGS BAR */}
+      {/* AUTO-TAGGING & VAULT ORGANIZATION BAR */}
       {!isReadabilityActive && (
-        <div id="category-tags-bar" className="bg-[#FAF8F5] border border-black/10 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2 print:hidden">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-black/70 mr-1 shrink-0">
-          <Tag className="w-3.5 h-3.5 text-fuchsia-600" />
-          <span>Categorize:</span>
-        </div>
+        <div
+          id="category-tags-bar"
+          className="bg-[#FAF8F5] dark:bg-[#18181B] border-2 border-black/15 dark:border-white/10 rounded-2xl p-4 sm:p-5 mb-6 shadow-xs font-sans print:hidden transition-colors"
+        >
+          {/* Header Row: Identified Category & Organization status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/10 dark:border-white/10 pb-3 mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-300 dark:border-fuchsia-700/60 flex items-center justify-center shrink-0">
+                <Tag className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-sm text-neutral-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
+                  <span>Auto-Tagging & Smart Organization</span>
+                  {folderAnalysis?.detectedSubject && (
+                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-[#FFE600] text-black border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                      {folderAnalysis.detectedSubject}
+                    </span>
+                  )}
+                </h4>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 font-medium">
+                  Content analyzed upon untangling to suggest categories and matching study folders.
+                </p>
+              </div>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 flex-1">
-          {Array.from(new Set([...selectedTags, ...smartDetectedTags.map((s) => s.tag), ...PRESET_TAGS])).map((tag) => {
-            const isSelected = selectedTags.includes(tag);
-            const smartMatch = smartDetectedTags.find((s) => s.tag.toLowerCase() === tag.toLowerCase());
-            return (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => toggleTag(tag)}
-                className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? "bg-fuchsia-700 text-white border-fuchsia-700 font-semibold shadow-2xs"
-                    : smartMatch
-                    ? "bg-amber-50 text-black border-amber-300 hover:border-amber-500 hover:bg-amber-100/50 font-medium"
-                    : "bg-white text-black/70 border-black/15 hover:border-black/30 hover:bg-black/5 font-medium"
-                }`}
-                title={smartMatch ? `Auto-detected from note: ${smartMatch.categoryLabel}` : undefined}
-              >
-                {isSelected ? (
-                  <Check className="w-3 h-3 text-white stroke-[3]" />
-                ) : smartMatch ? (
-                  <span className="text-[10px]">
-                    {smartMatch.category === "class"
-                      ? "🎓"
-                      : smartMatch.category === "ingredient"
-                      ? "🥦"
-                      : smartMatch.category === "diet"
-                      ? "⚡"
-                      : "✨"}
+            {/* Save / Status Action */}
+            <div className="flex items-center gap-2 shrink-0">
+              {isSaved ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Saved in {savedFolder ? `"${savedFolder.name}"` : "Vault"}</span>
                   </span>
-                ) : null}
-                <span>{tag}</span>
-              </button>
-            );
-          })}
+                  <button
+                    type="button"
+                    onClick={() => setIsSaveOrganizerOpen(true)}
+                    className="text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white bg-white dark:bg-[#202024] border border-black/15 dark:border-white/15 px-2.5 py-1 rounded-xl hover:border-black transition-colors cursor-pointer"
+                  >
+                    Change Folder/Tags
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {folderAnalysis?.recommendedFolder ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tagsToSave =
+                          selectedTags.length > 0
+                            ? selectedTags
+                            : smartDetectedTags.slice(0, 4).map((t) => t.tag);
+                        setSelectedTags(tagsToSave);
+                        onSaveToHistory(
+                          activeMarkdown,
+                          routeDetected,
+                          tagsToSave,
+                          folderAnalysis.recommendedFolder!.id
+                        );
+                      }}
+                      className="text-xs font-black bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-xl border border-black dark:border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all cursor-pointer flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5"
+                      title={`Quick 1-click save note into recommended folder "${folderAnalysis.recommendedFolder.name}"`}
+                    >
+                      <Bookmark className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                      <span>Save to "{folderAnalysis.recommendedFolder.name}"</span>
+                      <span className="text-[10px] bg-[#FFE600] text-black font-extrabold px-1.5 py-0.2 rounded">
+                        {folderAnalysis.folderMatches[0]?.matchPercentage}% match
+                      </span>
+                    </button>
+                  ) : null}
 
-          {isAddingCustomTag ? (
-            <form onSubmit={handleAddCustomTag} className="inline-flex items-center gap-1">
-              <input
-                type="text"
-                autoFocus
-                value={customTagInput}
-                onChange={(e) => setCustomTagInput(e.target.value)}
-                placeholder="tag name..."
-                className="text-xs px-2 py-0.5 border border-fuchsia-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-fuchsia-500 bg-white text-black w-24"
-              />
-              <button
-                type="submit"
-                className="text-[11px] bg-fuchsia-600 text-white px-2 py-0.5 rounded-lg font-semibold cursor-pointer hover:bg-fuchsia-700"
-              >
-                add
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSaveOrganizerOpen(true)}
+                    className="text-xs font-bold bg-white dark:bg-[#202024] text-neutral-800 dark:text-neutral-200 border border-black/20 dark:border-white/20 px-3 py-1.5 rounded-xl hover:border-black dark:hover:border-white transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Folder className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Organize...</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Suggested Tags Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300 mr-1 flex items-center gap-1">
+              <span>Tags:</span>
+            </span>
+
+            {Array.from(
+              new Set([...selectedTags, ...smartDetectedTags.map((s) => s.tag), ...PRESET_TAGS])
+            ).map((tag) => {
+              const isSelected = selectedTags.includes(tag);
+              const smartMatch = smartDetectedTags.find(
+                (s) => s.tag.toLowerCase() === tag.toLowerCase()
+              );
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? "bg-fuchsia-700 text-white border-fuchsia-700 font-bold shadow-2xs"
+                      : smartMatch
+                      ? "bg-amber-50 dark:bg-amber-950/40 text-neutral-900 dark:text-neutral-100 border-amber-300 dark:border-amber-700 hover:border-amber-500 font-medium"
+                      : "bg-white dark:bg-[#202024] text-neutral-700 dark:text-neutral-300 border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white font-medium"
+                  }`}
+                  title={smartMatch ? `Auto-detected: ${smartMatch.categoryLabel} (${smartMatch.relevanceScore}% relevance)` : undefined}
+                >
+                  {isSelected ? (
+                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  ) : smartMatch ? (
+                    <span className="text-[10px]">
+                      {smartMatch.category === "class"
+                        ? "🎓"
+                        : smartMatch.category === "ingredient"
+                        ? "🥦"
+                        : smartMatch.category === "diet"
+                        ? "⚡"
+                        : smartMatch.category === "format"
+                        ? "📝"
+                        : "💡"}
+                    </span>
+                  ) : null}
+                  <span>{tag}</span>
+                  {smartMatch && !isSelected && (
+                    <span className="text-[9px] opacity-60 font-mono">
+                      {smartMatch.relevanceScore}%
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+            {isAddingCustomTag ? (
+              <form onSubmit={handleAddCustomTag} className="inline-flex items-center gap-1">
+                <input
+                  type="text"
+                  autoFocus
+                  value={customTagInput}
+                  onChange={(e) => setCustomTagInput(e.target.value)}
+                  placeholder="tag name..."
+                  className="text-xs px-2 py-0.5 border border-fuchsia-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-fuchsia-500 bg-white dark:bg-neutral-900 text-black dark:text-white w-24"
+                />
+                <button
+                  type="submit"
+                  className="text-[11px] bg-fuchsia-600 text-white px-2 py-0.5 rounded-lg font-semibold cursor-pointer hover:bg-fuchsia-700"
+                >
+                  add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCustomTag(false)}
+                  className="text-[11px] bg-black/10 dark:bg-white/10 text-black dark:text-white px-1.5 py-0.5 rounded-lg cursor-pointer hover:bg-black/20"
+                >
+                  ✕
+                </button>
+              </form>
+            ) : (
               <button
                 type="button"
-                onClick={() => setIsAddingCustomTag(false)}
-                className="text-[11px] bg-black/10 text-black px-1.5 py-0.5 rounded-lg cursor-pointer hover:bg-black/20"
+                onClick={() => setIsAddingCustomTag(true)}
+                className="text-xs px-2 py-1 rounded-lg border border-dashed border-neutral-400 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:border-black dark:hover:border-white font-medium flex items-center gap-1 cursor-pointer"
               >
-                ✕
+                <Plus className="w-3 h-3" />
+                <span>custom tag</span>
               </button>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsAddingCustomTag(true)}
-              className="text-xs px-2 py-1 rounded-lg border border-dashed border-black/20 text-black/60 hover:text-black hover:border-black/40 hover:bg-white font-medium flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3 h-3" />
-              <span>custom tag</span>
-            </button>
+            )}
+          </div>
+
+          {/* Folder Suggestion Info Footnote */}
+          {folderAnalysis?.recommendedFolder && !isSaved && (
+            <div className="pt-2 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-600 dark:text-neutral-400">
+              <div className="flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>
+                  Suggested Folder: <strong className="text-neutral-900 dark:text-neutral-100">{folderAnalysis.recommendedFolder.name}</strong>
+                </span>
+                <span className="text-neutral-400 dark:text-neutral-500">•</span>
+                <span className="italic">{folderAnalysis.folderMatches[0]?.matchReason}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaveOrganizerOpen(true)}
+                className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer"
+              >
+                Select different folder &rarr;
+              </button>
+            </div>
+          )}
+
+          {/* If no existing folder matches well, show 1-click suggested new folder creation */}
+          {!folderAnalysis?.recommendedFolder && folderAnalysis?.suggestedNewFolderName && onCreateFolder && !isSaved && (
+            <div className="pt-2 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-600 dark:text-neutral-400">
+              <div className="flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>
+                  No matching folder yet. Suggested new folder:{" "}
+                  <strong className="text-neutral-900 dark:text-neutral-100">{folderAnalysis.suggestedNewFolderName}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const created = onCreateFolder(
+                    folderAnalysis.suggestedNewFolderName!,
+                    folderAnalysis.suggestedNewFolderColor
+                  );
+                  const tagsToSave =
+                    selectedTags.length > 0
+                      ? selectedTags
+                      : smartDetectedTags.slice(0, 4).map((t) => t.tag);
+                  setSelectedTags(tagsToSave);
+                  onSaveToHistory(activeMarkdown, routeDetected, tagsToSave, created.id);
+                }}
+                className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3 stroke-[3]" />
+                <span>Create & Save to "{folderAnalysis.suggestedNewFolderName}"</span>
+              </button>
+            </div>
           )}
         </div>
-      </div>
       )}
 
       {/* CHEF RECEIPT & COST PER SERVING HIGHLIGHT BANNER */}
@@ -2263,7 +2479,7 @@ export const OutputView: React.FC<OutputViewProps> = ({
           value={activeMarkdown}
           onChange={handleMarkdownChange}
           originalValue={markdown}
-          onSaveToVault={() => onSaveToHistory(activeMarkdown, routeDetected, selectedTags)}
+          onSaveToVault={() => setIsSaveOrganizerOpen(true)}
           isSaved={isSaved}
           onClose={() => setIsEditing(false)}
           routeDetected={routeDetected}

@@ -9,11 +9,30 @@
  * - Study document formats (e.g., Exam Prep, Cheat Sheet, Formulas, Flashcards, Lab Report)
  */
 
+import { StudyFolder } from "../types";
+
 export interface SuggestedTag {
   tag: string;
   category: "class" | "ingredient" | "topic" | "format" | "diet";
   categoryLabel: string;
   relevanceScore: number;
+}
+
+export interface FolderMatchSuggestion {
+  folder: StudyFolder;
+  score: number;
+  matchPercentage: number;
+  matchReason: string;
+  isRecommended: boolean;
+}
+
+export interface FolderAnalysisResult {
+  recommendedFolder: StudyFolder | null;
+  folderMatches: FolderMatchSuggestion[];
+  suggestedNewFolderName: string | null;
+  suggestedNewFolderColor: "indigo" | "emerald" | "amber" | "rose" | "purple" | "blue" | "stone";
+  detectedSubject: string;
+  topTags: SuggestedTag[];
 }
 
 // -------------------------------------------------------------
@@ -467,3 +486,271 @@ export function analyzeNoteContentForTags(params: {
 
   return suggestions.slice(0, maxSuggestions);
 }
+
+/**
+ * Intelligent Folder Analyzer
+ * Analyzes note content and tags to match against the student's existing folders,
+ * or recommends creating a tailored new folder with high confidence.
+ */
+export function suggestFolderForNote(params: {
+  title?: string;
+  outputMarkdown: string;
+  inputPrompt?: string;
+  routeDetected?: "notes" | "chef";
+  folders: StudyFolder[];
+  existingTags?: string[];
+}): FolderAnalysisResult {
+  const {
+    title = "",
+    outputMarkdown = "",
+    inputPrompt = "",
+    routeDetected = "notes",
+    folders = [],
+    existingTags = [],
+  } = params;
+
+  // 1. Analyze content for top tags
+  const topTags = analyzeNoteContentForTags({
+    title,
+    outputMarkdown,
+    inputPrompt,
+    routeDetected,
+    existingTags,
+    maxSuggestions: 8,
+  });
+
+  const combinedText = `${title}\n${inputPrompt}\n${outputMarkdown}`.toLowerCase();
+
+  // 2. Determine primary subject or category
+  const classTag = topTags.find((t) => t.category === "class");
+  const topicTag = topTags.find((t) => t.category === "topic");
+  const formatTag = topTags.find((t) => t.category === "format");
+  const dietTag = topTags.find((t) => t.category === "diet");
+  const ingredientTag = topTags.find((t) => t.category === "ingredient");
+
+  let detectedSubject =
+    classTag?.tag ||
+    (routeDetected === "chef"
+      ? (ingredientTag ? `${ingredientTag.tag} Recipes` : "Dorm Meals")
+      : topicTag?.tag || "General Studies");
+
+  // 3. Score existing folders
+  const matches: FolderMatchSuggestion[] = [];
+
+  for (const folder of folders) {
+    let score = 0;
+    let matchReasons: string[] = [];
+    const fNameLower = folder.name.toLowerCase();
+
+    // Route matching
+    if (routeDetected === "chef") {
+      if (fNameLower.includes("recipe") || fNameLower.includes("food") || fNameLower.includes("cook") || fNameLower.includes("meal") || fNameLower.includes("dorm")) {
+        score += 80;
+        matchReasons.push("Dorm chef meal format detected");
+      }
+    } else {
+      if (fNameLower.includes("recipe") || fNameLower.includes("cook") || fNameLower.includes("food")) {
+        score -= 40; // Penalize recipe folders for academic notes
+      }
+    }
+
+    // Class/Subject matching
+    if (classTag && (fNameLower.includes(classTag.tag.toLowerCase()) || classTag.tag.toLowerCase().includes(fNameLower))) {
+      score += 90;
+      matchReasons.push(`Matches subject: ${classTag.tag}`);
+    }
+
+    // Direct tag matching
+    for (const tag of topTags) {
+      if (fNameLower.includes(tag.tag.toLowerCase())) {
+        score += 35;
+        if (!matchReasons.includes(`Matches tag: ${tag.tag}`)) {
+          matchReasons.push(`Matches tag: ${tag.tag}`);
+        }
+      }
+    }
+
+    // Token overlap
+    const folderTokens = fNameLower.split(/[\s&/_-]+/).filter((t) => t.length > 2);
+    for (const token of folderTokens) {
+      if (combinedText.includes(token)) {
+        score += 15;
+      }
+    }
+
+    // Exam prep matching
+    if (formatTag?.tag === "Exam Prep" && (fNameLower.includes("exam") || fNameLower.includes("prep") || fNameLower.includes("midterm") || fNameLower.includes("study"))) {
+      score += 50;
+      matchReasons.push("Exam prep study format");
+    }
+
+    // Normalize confidence percentage (cap at 99%)
+    const matchPercentage = Math.min(99, Math.max(10, Math.round((score / 120) * 100)));
+
+    matches.push({
+      folder,
+      score,
+      matchPercentage,
+      matchReason: matchReasons.length > 0 ? matchReasons.join(" • ") : "General note content",
+      isRecommended: false,
+    });
+  }
+
+  // Sort by score descending
+  matches.sort((a, b) => b.score - a.score);
+
+  // Set best recommended folder if score is sufficient
+  let recommendedFolder: StudyFolder | null = null;
+  if (matches.length > 0 && matches[0].score >= 35) {
+    matches[0].isRecommended = true;
+    recommendedFolder = matches[0].folder;
+  }
+
+  // 4. Suggest creating a new specific folder if subject is distinct
+  let suggestedNewFolderName: string | null = null;
+  let suggestedNewFolderColor: StudyFolder["color"] = "indigo";
+
+  if (classTag) {
+    const existingExact = folders.some((f) => f.name.toLowerCase() === classTag.tag.toLowerCase());
+    if (!existingExact) {
+      suggestedNewFolderName = classTag.tag;
+      suggestedNewFolderColor =
+        classTag.tag.toLowerCase().includes("bio") || classTag.tag.toLowerCase().includes("science")
+          ? "emerald"
+          : classTag.tag.toLowerCase().includes("math") || classTag.tag.toLowerCase().includes("calc") || classTag.tag.toLowerCase().includes("cs") || classTag.tag.toLowerCase().includes("comp")
+          ? "indigo"
+          : classTag.tag.toLowerCase().includes("chem") || classTag.tag.toLowerCase().includes("phys")
+          ? "blue"
+          : "purple";
+    }
+  } else if (routeDetected === "chef" && ingredientTag) {
+    const candidate = `${ingredientTag.tag} Dinners`;
+    if (!folders.some((f) => f.name.toLowerCase() === candidate.toLowerCase())) {
+      suggestedNewFolderName = candidate;
+      suggestedNewFolderColor = "amber";
+    }
+  }
+
+  return {
+    recommendedFolder,
+    folderMatches: matches,
+    suggestedNewFolderName,
+    suggestedNewFolderColor,
+    detectedSubject,
+    topTags,
+  };
+}
+
+/**
+ * Hybrid Content & Folder Analyzer
+ * Requests AI-powered semantic analysis from /api/analyze-tags with instant
+ * graceful fallback to local heuristic analysis on network errors or timeouts.
+ */
+export async function analyzeNoteWithAI(params: {
+  markdownNote: string;
+  title?: string;
+  routeDetected?: "notes" | "chef";
+  folders: StudyFolder[];
+  existingTags?: string[];
+}): Promise<FolderAnalysisResult> {
+  const localFallback = suggestFolderForNote({
+    title: params.title,
+    outputMarkdown: params.markdownNote,
+    routeDetected: params.routeDetected,
+    folders: params.folders,
+    existingTags: params.existingTags,
+  });
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    const res = await fetch("/api/analyze-tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        markdownNote: params.markdownNote,
+        title: params.title,
+        routeDetected: params.routeDetected || "notes",
+        folders: params.folders.map((f) => ({ id: f.id, name: f.name })),
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return localFallback;
+    }
+
+    const data = await res.json();
+    const analysis = data?.analysis;
+    if (!analysis) return localFallback;
+
+    // Map AI tags
+    const aiTags: SuggestedTag[] = Array.isArray(analysis.suggestedTags)
+      ? analysis.suggestedTags.map((t: any) => ({
+          tag: String(t.tag || "").trim(),
+          category: ["class", "topic", "format", "ingredient", "diet"].includes(t.category)
+            ? t.category
+            : "topic",
+          categoryLabel: String(t.categoryLabel || "Topic"),
+          relevanceScore: typeof t.relevanceScore === "number" ? t.relevanceScore : 85,
+        })).filter((t: SuggestedTag) => t.tag.length > 0)
+      : [];
+
+    // Merge AI tags with local tags (ensuring uniqueness)
+    const combinedTags: SuggestedTag[] = [...aiTags];
+    for (const lt of localFallback.topTags) {
+      if (!combinedTags.some((at) => at.tag.toLowerCase() === lt.tag.toLowerCase())) {
+        combinedTags.push(lt);
+      }
+    }
+
+    // Match recommended folder
+    let recFolder: StudyFolder | null = null;
+    if (analysis.recommendedFolderId) {
+      recFolder = params.folders.find((f) => f.id === analysis.recommendedFolderId) || null;
+    }
+    if (!recFolder && analysis.suggestedFolderName) {
+      const match = params.folders.find(
+        (f) => f.name.toLowerCase() === analysis.suggestedFolderName.toLowerCase()
+      );
+      if (match) recFolder = match;
+    }
+    if (!recFolder) {
+      recFolder = localFallback.recommendedFolder;
+    }
+
+    // Enrich folder matches
+    const folderMatches: FolderMatchSuggestion[] = params.folders.map((f) => {
+      const localMatch = localFallback.folderMatches.find((m) => m.folder.id === f.id);
+      const isAiPick = recFolder?.id === f.id;
+      return {
+        folder: f,
+        score: isAiPick ? 100 : localMatch?.score || 10,
+        matchPercentage: isAiPick
+          ? Math.max(88, analysis.folderMatchPercentage || 92)
+          : localMatch?.matchPercentage || 15,
+        matchReason: isAiPick
+          ? analysis.folderMatchReason || "Strong content and topic alignment"
+          : localMatch?.matchReason || "General note match",
+        isRecommended: isAiPick,
+      };
+    });
+
+    folderMatches.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+    return {
+      recommendedFolder: recFolder,
+      folderMatches,
+      suggestedNewFolderName: analysis.suggestedNewFolderName || localFallback.suggestedNewFolderName,
+      suggestedNewFolderColor: analysis.suggestedNewFolderColor || localFallback.suggestedNewFolderColor,
+      detectedSubject: analysis.detectedSubject || localFallback.detectedSubject,
+      topTags: combinedTags.slice(0, 10),
+    };
+  } catch {
+    return localFallback;
+  }
+}
+
