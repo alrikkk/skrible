@@ -641,7 +641,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       strokeWidth="5"
                       strokeLinejoin="round"
                       initial={{ scale: 0, rotate: 0 }}
-                      animate={{ scale: [0, 1.4, 1], rotate: 45 }}
+                      animate={{ scale: 1, rotate: 45 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14 }}
                       style={{ transformOrigin: "590px 120px" }}
                     />
@@ -654,7 +654,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       strokeWidth="5"
                       strokeLinejoin="round"
                       initial={{ scale: 0, rotate: 0 }}
-                      animate={{ scale: [0, 1.35, 1], rotate: -35 }}
+                      animate={{ scale: 1, rotate: -35 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14, delay: 0.08 }}
                       style={{ transformOrigin: "150px 95px" }}
                     />
@@ -667,7 +667,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       strokeWidth="4"
                       strokeLinejoin="round"
                       initial={{ scale: 0, rotate: 0 }}
-                      animate={{ scale: [0, 1.3, 1], rotate: 60 }}
+                      animate={{ scale: 1, rotate: 60 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14, delay: 0.14 }}
                       style={{ transformOrigin: "610px 290px" }}
                     />
@@ -680,7 +680,7 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       strokeWidth="3"
                       strokeLinejoin="round"
                       initial={{ scale: 0 }}
-                      animate={{ scale: [0, 1.4, 1] }}
+                      animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.18 }}
                       style={{ transformOrigin: "370px 30px" }}
                     />
@@ -692,8 +692,8 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                       stroke="#000000"
                       strokeWidth="4"
                       strokeLinejoin="round"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: [0, 1.25, 1], rotate: 20 }}
+                      initial={{ scale: 0, rotate: 0 }}
+                      animate={{ scale: 1, rotate: 20 }}
                       transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.22 }}
                       style={{ transformOrigin: "285px 465px" }}
                     />
@@ -766,8 +766,8 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
                 {/* Star Tittle for the letter 'i' */}
                 {item.hasStarTittle && (
                   <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: [0, 1.4, 1], rotate: [0, 45, 0] }}
+                    initial={{ scale: 0, rotate: 0 }}
+                    animate={{ scale: 1, rotate: 15 }}
                     transition={{
                       type: "spring",
                       stiffness: 400,
@@ -850,9 +850,11 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
               initial={{ y: "100%" }}
               animate={{ y: "-10%" }}
               transition={{ duration: 0.7, ease: easeInOutCubic }}
-              className="absolute inset-x-0 bottom-0 h-[120%] bg-[#FFE600] z-31"
+              className="absolute inset-x-0 bottom-0 h-[120%] bg-[#FFE600]"
               style={{
+                zIndex: 31,
                 borderTop: "6px solid #000000",
+                boxShadow: "0 -8px 0px rgba(0, 0, 0, 0.4)",
                 transform: "translate3d(0, 0, 0)",
               }}
             />
@@ -862,9 +864,11 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
               initial={{ y: "100%" }}
               animate={{ y: "-10%" }}
               transition={{ duration: 0.7, delay: 0.08, ease: easeInOutCubic }}
-              className="absolute inset-x-0 bottom-0 h-[120%] bg-[#FF90E8] z-32"
+              className="absolute inset-x-0 bottom-0 h-[120%] bg-[#FF90E8]"
               style={{
+                zIndex: 32,
                 borderTop: "6px solid #000000",
+                boxShadow: "0 -8px 0px rgba(0, 0, 0, 0.3)",
                 transform: "translate3d(0, 0, 0)",
               }}
             />
@@ -874,8 +878,9 @@ export const OpeningPaintAnimation: React.FC<OpeningPaintAnimationProps> = ({
               initial={{ y: "100%" }}
               animate={{ y: "0%" }}
               transition={{ duration: 0.7, delay: 0.16, ease: easeInOutCubic }}
-              className="absolute inset-0 z-33"
+              className="absolute inset-0"
               style={{
+                zIndex: 33,
                 backgroundColor: palette.appBg,
                 borderTop: "6px solid #000000",
                 transform: "translate3d(0, 0, 0)",
